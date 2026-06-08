@@ -10,7 +10,9 @@
 
 const API_URL = window.location.protocol === 'file:' 
     ? 'http://localhost:3000/api' 
-    : `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}/api`;
+    : (window.location.port === '3000' || window.location.port === '')
+        ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/api`
+        : '/api';
 
 document.addEventListener('DOMContentLoaded', function () {
     const loginForm = document.getElementById('loginForm');
