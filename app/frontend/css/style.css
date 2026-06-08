@@ -1,0 +1,128 @@
+/* css/style.css - Estilos gerais para todas as páginas */
+
+/* RESET E CONFIGURAÇÕES GERAIS */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background: #f5f5f5;
+    color: #333;
+    min-height: 100vh;
+}
+
+/* HEADER COMUM */
+.top-nav {
+    background: linear-gradient(135deg, #004a8f 0%, #0066cc 100%);
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.back-btn {
+    color: white;
+    text-decoration: none;
+    background: rgba(255,255,255,0.1);
+    padding: 8px 15px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.3s;
+}
+
+.back-btn:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.logo-mini {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.page-title {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+}
+
+/* UTILIDADES GLOBAIS */
+.hidden {
+    display: none !important;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #0066cc 0%, #004a8f 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 102, 204, 0.2);
+}
+
+.btn-secondary {
+    background: #f5f5f5;
+    color: #666;
+    border: 2px solid #ddd;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+/* RESPONSIVIDADE GERAL */
+@media (max-width: 768px) {
+    .top-nav {
+        padding: 15px;
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .nav-left, .nav-right {
+        width: 100%;
+        justify-content: center;
+    }
+}

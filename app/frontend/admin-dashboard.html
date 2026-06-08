@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin TI — SEMJEL Chamados</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- ══════════════ SIDEBAR ══════════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon"><i class="fas fa-laptop-code"></i></div>
+            <div>
+                <div class="logo-text">SEMJEL TI</div>
+                <div class="logo-sub">Painel Administrativo</div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section-label">Menu</div>
+            <a href="#" class="nav-item active" id="navDashboard">
+                <i class="fas fa-chart-pie"></i> Dashboard
+            </a>
+            <a href="#" class="nav-item" id="navChamados">
+                <i class="fas fa-ticket-alt"></i> Todos os Chamados
+            </a>
+            <a href="#" class="nav-item" id="navUsuarios">
+                <i class="fas fa-users"></i> Usuários
+            </a>
+
+            <div class="nav-section-label" style="margin-top:16px">Filtros Rápidos</div>
+            <a href="#" class="nav-item" id="navFiltroAbertos">
+                <i class="fas fa-circle" style="color:#c81e1e;font-size:10px"></i> Abertos
+            </a>
+            <a href="#" class="nav-item" id="navFiltroAndamento">
+                <i class="fas fa-circle" style="color:#b45309;font-size:10px"></i> Em Andamento
+            </a>
+            <a href="#" class="nav-item" id="navFiltroResolvidos">
+                <i class="fas fa-circle" style="color:#057a55;font-size:10px"></i> Resolvidos
+            </a>
+            <a href="#" class="nav-item" id="navFiltroUrgentes">
+                <i class="fas fa-fire" style="color:#dc2626"></i> Urgentes
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="admin-badge">
+                <div class="badge-icon"><i class="fas fa-user-shield"></i></div>
+                <div>
+                    <div class="badge-name" id="sidebarUserName">Admin</div>
+                    <div style="font-size:11px;color:#475569">Administrador</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ══════════════ MAIN CONTENT ══════════════ -->
+    <div class="main-content">
+
+        <!-- Header -->
+        <header class="top-header">
+            <div class="page-title">
+                <h1 id="headerTitle">Dashboard Geral</h1>
+                <div class="breadcrumb" id="headerBreadcrumb">Visão geral do sistema de chamados</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn-icon" id="btnThemeToggle" title="Alternar tema">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+                <button class="btn-icon" id="btnRefresh" title="Atualizar dados">
+                    <i class="fas fa-sync-alt" id="refreshIcon"></i>
+                </button>
+                <button class="btn-logout" id="btnLogout">
+                    <i class="fas fa-sign-out-alt"></i> Sair
+                </button>
+            </div>
+        </header>
+
+        <!-- Conteúdo da Página -->
+        <main class="page-content">
+
+            <!-- ══ SEÇÃO: DASHBOARD ══ -->
+            <div id="secaoDashboard">
+                <!-- Stat Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="fas fa-ticket-alt"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statTotal">-</div>
+                            <div class="stat-label">Total de Chamados</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red"><i class="fas fa-exclamation-circle"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statAbertos">-</div>
+                            <div class="stat-label">Abertos</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow"><i class="fas fa-tools"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statAndamento">-</div>
+                            <div class="stat-label">Em Andamento</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statResolvidos">-</div>
+                            <div class="stat-label">Resolvidos</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple"><i class="fas fa-fire"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statUrgentes">-</div>
+                            <div class="stat-label">Urgentes</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chamados recentes no dashboard -->
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3><i class="fas fa-clock" style="color:var(--primary)"></i> Chamados Recentes</h3>
+                        <small id="ultimaAtualizacao">—</small>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table class="tickets-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Título</th>
+                                    <th>Solicitante</th>
+                                    <th>Setor</th>
+                                    <th>Prioridade</th>
+                                    <th>Status</th>
+                                    <th>Data</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaRecentes">
+                                <tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ SEÇÃO: TODOS OS CHAMADOS ══ -->
+            <div id="secaoChamados" style="display:none">
+                <!-- Filtros -->
+                <div class="filter-bar">
+                    <input type="text" id="buscaInput" placeholder="🔍  Buscar por título ou descrição..." maxlength="200">
+                    <select id="filtroStatus">
+                        <option value="">Todos os Status</option>
+                        <option value="aberto">Aberto</option>
+                        <option value="em_andamento">Em Andamento</option>
+                        <option value="resolvido">Resolvido</option>
+                        <option value="fechado">Fechado</option>
+                    </select>
+                    <select id="filtroPrioridade">
+                        <option value="">Toda Prioridade</option>
+                        <option value="urgente">🔴 Urgente</option>
+                        <option value="alta">🟠 Alta</option>
+                        <option value="normal">🟡 Normal</option>
+                        <option value="baixa">🟢 Baixa</option>
+                    </select>
+                    <button class="btn-filter" id="btnBuscarChamados">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                    <button class="btn-clear" id="btnLimparFiltros">Limpar</button>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3><i class="fas fa-list" style="color:var(--primary)"></i> Lista de Chamados</h3>
+                        <span id="totalChamadosLabel" style="font-size:13px;color:var(--text-muted)"></span>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table class="tickets-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Título</th>
+                                    <th>Solicitante</th>
+                                    <th>Setor</th>
+                                    <th>Categoria</th>
+                                    <th>Prioridade</th>
+                                    <th>Status</th>
+                                    <th>Data</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaChamados">
+                                <tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ SEÇÃO: USUÁRIOS ══ -->
+            <div id="secaoUsuarios" style="display:none">
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3><i class="fas fa-users" style="color:var(--primary)"></i> Usuários Cadastrados</h3>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table class="tickets-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Setor</th>
+                                    <th>Papel</th>
+                                    <th>Status</th>
+                                    <th>Cadastro</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaUsuarios">
+                                <tr class="loading-row"><td colspan="7"><div class="spinner"></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ══════════════ MODAL DETALHES ══════════════ -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitulo">Chamado #</h3>
+            <button class="modal-close" id="btnFecharModalTop">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <!-- preenchido pelo JS -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn-sm btn-primary" id="btnFecharModalBottom">Fechar</button>
+            <button class="btn-sm btn-success" id="btnSalvarStatus">
+                <i class="fas fa-save"></i> Salvar Status
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição de Usuário -->
+<div class="modal-overlay" id="modalUsuarioOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalUsuarioTitulo">Editar Usuário</h3>
+            <button class="modal-close" id="btnFecharModalUsuarioTop">&times;</button>
+        </div>
+        <div class="modal-body" id="modalUsuarioBody">
+            <div class="detail-row">
+                <div class="detail-label">Nome</div>
+                <div class="detail-value" id="editUsuarioNome">—</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Email</div>
+                <div class="detail-value" id="editUsuarioEmail">—</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Setor</div>
+                <div class="detail-value" id="editUsuarioSetor">—</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Papel (Permissão)</div>
+                <select class="status-select" id="editUsuarioPapel">
+                    <option value="usuario">👤 Usuário Comum</option>
+                    <option value="admin">🛡️ Administrador (TI)</option>
+                </select>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Status da Conta</div>
+                <select class="status-select" id="editUsuarioAtivo">
+                    <option value="1">✅ Ativo</option>
+                    <option value="0">🚫 Inativo (bloqueado)</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-sm btn-primary" id="btnFecharModalUsuarioBottom">Cancelar</button>
+            <button class="btn-sm btn-success" id="btnSalvarUsuario">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+    <i id="toastIcon"></i>
+    <span id="toastMsg"></span>
+</div>
+
+<script src="js/admin.js?v=3"></script>
+</body>
+</html>

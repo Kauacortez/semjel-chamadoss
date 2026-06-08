@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Chamados — SEMJEL TI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        /* ── Base ─────────────────────────────────────────────────── */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+
+        /* ── Top nav ──────────────────────────────────────────────── */
+        .top-nav {
+            background: #1a56db;
+            color: #fff;
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+        }
+
+        .logo-mini {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-info span {
+            font-size: 14px;
+        }
+
+        .btn-logout-nav {
+            background: rgba(255, 255, 255, .15);
+            border: 1px solid rgba(255, 255, 255, .3);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        .btn-logout-nav:hover {
+            background: rgba(255, 255, 255, .25);
+        }
+
+        /* ── Layout ───────────────────────────────────────────────── */
+        .dashboard-container {
+            display: flex;
+            min-height: calc(100vh - 60px);
+        }
+
+        .sidebar {
+            width: 220px;
+            background: #fff;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0;
+            flex-shrink: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 20px;
+            color: #475569;
+            font-size: 14px;
+            text-decoration: none;
+            border-left: 3px solid transparent;
+            transition: all .2s;
+        }
+
+        .nav-item:hover {
+            background: #f0f7ff;
+            color: #1a56db;
+        }
+
+        .nav-item.active {
+            background: #eff6ff;
+            color: #1a56db;
+            border-left-color: #1a56db;
+            font-weight: 600;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        /* ── Stats ────────────────────────────────────────────────── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px 20px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border-top: 3px solid #1a56db;
+        }
+
+        .stat-card.warn {
+            border-top-color: #d97706;
+        }
+
+        .stat-card.ok {
+            border-top-color: #057a55;
+        }
+
+        .stat-icon {
+            font-size: 22px;
+        }
+
+        .stat-value {
+            font-size: 26px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 3px;
+        }
+
+        /* ── Table card ───────────────────────────────────────────── */
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            padding: 10px 16px;
+            background: #f8fafc;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: #64748b;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #f8fafc;
+        }
+
+        /* ── Badge ─────────────────────────────────────────────────── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-aberto {
+            background: #fde8e8;
+            color: #c81e1e;
+        }
+
+        .badge-andamento {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .badge-resolvido {
+            background: #def7ec;
+            color: #057a55;
+        }
+
+        .badge-fechado {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        /* ── Button ────────────────────────────────────────────────── */
+        .btn-novo {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #1a56db;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .2s;
+        }
+
+        .btn-novo:hover {
+            background: #1e429f;
+        }
+
+        /* ── Empty / loading ───────────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+            opacity: .4;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #1a56db;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ── Nav ─────────────────────────────────────────────────────────── -->
+    <div class="top-nav">
+        <div class="logo-mini">
+            <i class="fas fa-laptop-code"></i>
+            <span>SEMJEL TI — Chamados</span>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i>
+            <span id="userName">Usuário</span>
+            <button class="btn-logout-nav" id="btnLogoutNav">
+                <i class="fas fa-sign-out-alt"></i> Sair
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Layout principal ─────────────────────────────────────────────── -->
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <a href="dashboard.html" class="nav-item active">
+                <i class="fas fa-home"></i> Início
+            </a>
+            <a href="novo-chamado.html" class="nav-item">
+                <i class="fas fa-plus-circle"></i> Novo Chamado
+            </a>
+        </aside>
+
+        <!-- Conteúdo -->
+        <main class="main-content">
+            <h2 style="font-size:20px;font-weight:700;margin-bottom:20px">
+                Painel de Controle
+            </h2>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-exclamation-circle" style="color:#c81e1e"></i></div>
+                    <div>
+                        <div class="stat-value" id="countAbertos">—</div>
+                        <div class="stat-label">Abertos</div>
+                    </div>
+                </div>
+                <div class="stat-card warn">
+                    <div class="stat-icon"><i class="fas fa-tools" style="color:#d97706"></i></div>
+                    <div>
+                        <div class="stat-value" id="countAndamento">—</div>
+                        <div class="stat-label">Em Andamento</div>
+                    </div>
+                </div>
+                <div class="stat-card ok">
+                    <div class="stat-icon"><i class="fas fa-check-circle" style="color:#057a55"></i></div>
+                    <div>
+                        <div class="stat-value" id="countResolvidos">—</div>
+                        <div class="stat-label">Resolvidos</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-list" style="color:#1a56db;margin-right:8px"></i>Meus Chamados</h3>
+                    <a href="novo-chamado.html" class="btn-novo">
+                        <i class="fas fa-plus"></i> Novo Chamado
+                    </a>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Título</th>
+                            <th>Categoria</th>
+                            <th>Prioridade</th>
+                            <th>Status</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaChamados">
+                        <tr>
+                            <td colspan="6" style="text-align:center;padding:32px">
+                                <div class="spinner"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ==========================================================================
+        // dashboard inline — segurança + dados reais da API
+        // SEGURANÇA: textContent em todos os campos do banco (anti-XSS)
+        // ==========================================================================
+        'use strict';
+
+        const API_URL = window.location.protocol === 'file:' 
+            ? 'http://localhost:3000/api' 
+            : `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}/api`;
+
+        // ── Auth guard ─────────────────────────────────────────────────────────
+        (function guardPage() {
+            const token = localStorage.getItem('semjel_token');
+            const papel = localStorage.getItem('semjel_user_papel');
+            if (!token) { window.location.replace('index.html'); return; }
+
+            // Admin não deve estar aqui
+            if (papel === 'admin') { window.location.replace('admin-dashboard.html'); return; }
+
+            // Verificar expiração do token sem lib externa
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (payload.exp && Date.now() / 1000 > payload.exp) {
+                    limparSessao(); return;
+                }
+            } catch { limparSessao(); }
+        })();
+
+        // ── Inicializar ────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            // SEGURANÇA: textContent
+            document.getElementById('userName').textContent =
+                localStorage.getItem('semjel_user_name') || 'Usuário';
+
+            const btnLogout = document.getElementById('btnLogoutNav');
+            if (btnLogout) btnLogout.addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+            carregarDashboard();
+        });
+
+        async function carregarDashboard() {
+            const token = localStorage.getItem('semjel_token');
+            const userId = localStorage.getItem('semjel_user_id');
+            if (!token || !userId) { limparSessao(); return; }
+
+            try {
+                const resp = await fetch(`${API_URL}/chamados/usuario/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (resp.status === 401 || resp.status === 403) { limparSessao(); return; }
+                if (!resp.ok) throw new Error('API error');
+
+                const data = await resp.json();
+                const chamados = data.chamados || data || [];
+                renderizarDashboard(chamados);
+
+            } catch {
+                renderizarErro();
+            }
+        }
+
+        function renderizarDashboard(chamados) {
+            // Contadores
+            const abertos = chamados.filter(c => c.status === 'aberto').length;
+            const andamento = chamados.filter(c => c.status === 'em_andamento').length;
+            const resolvidos = chamados.filter(c => c.status === 'resolvido' || c.status === 'fechado').length;
+
+            // SEGURANÇA: textContent
+            document.getElementById('countAbertos').textContent = abertos;
+            document.getElementById('countAndamento').textContent = andamento;
+            document.getElementById('countResolvidos').textContent = resolvidos;
+
+            const tbody = document.getElementById('tabelaChamados');
+            tbody.innerHTML = '';
+
+            if (!chamados.length) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 6;
+                td.innerHTML = `<div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p style="font-size:16px;margin-bottom:8px">Nenhum chamado aberto</p>
+                <p style="margin-bottom:16px;font-size:13px">Quando você abrir um chamado ele aparecerá aqui.</p>
+                <a href="novo-chamado.html" class="btn-novo" style="text-decoration:none">
+                    <i class="fas fa-plus"></i> Abrir Primeiro Chamado
+                </a>
+            </div>`;
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+                return;
+            }
+
+            // Ordenar por data desc
+            chamados.sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
+            chamados.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.appendChild(td_text(`CH-${String(c.id).padStart(4, '0')}`));
+                tr.appendChild(td_text(c.titulo));
+                tr.appendChild(td_text(c.categoria));
+                tr.appendChild(td_text(c.prioridade));
+
+                // Badge status
+                const tdStatus = document.createElement('td');
+                const badge = document.createElement('span');
+                const mapa = {
+                    aberto: ['badge-aberto', '● Aberto'],
+                    em_andamento: ['badge-andamento', '● Em Andamento'],
+                    resolvido: ['badge-resolvido', '● Resolvido'],
+                    fechado: ['badge-fechado', '● Fechado']
+                };
+                const [cls, lbl] = mapa[c.status] || ['badge-fechado', c.status];
+                badge.className = `badge ${cls}`;
+                badge.textContent = lbl; // textContent — anti-XSS
+                tdStatus.appendChild(badge);
+                tr.appendChild(tdStatus);
+
+                tr.appendChild(td_text(formatarData(c.data_abertura)));
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderizarErro() {
+            document.getElementById('tabelaChamados').innerHTML =
+                `<tr><td colspan="6" style="text-align:center;padding:32px;color:#c81e1e">
+                <i class="fas fa-exclamation-triangle"></i>
+                Não foi possível carregar os dados. Verifique a conexão.
+            </td></tr>`;
+        }
+
+        // Helper: criar td com textContent seguro
+        function td_text(val) {
+            const c = document.createElement('td');
+            c.textContent = val ?? '—';
+            return c;
+        }
+
+        function formatarData(str) {
+            if (!str) return '—';
+            try { return new Date(str).toLocaleDateString('pt-BR'); } catch { return str; }
+        }
+
+        function limparSessao() {
+            ['semjel_token', 'semjel_logged_in', 'semjel_user_email',
+                'semjel_user_name', 'semjel_user_id', 'semjel_user_papel'].forEach(k => localStorage.removeItem(k));
+            window.location.replace('index.html');
+        }
+
+        function logout() {
+            if (confirm('Deseja sair do sistema?')) limparSessao();
+        }
+    </script>
+</body>
+
+</html>

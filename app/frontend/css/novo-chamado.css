@@ -1,0 +1,378 @@
+/* css/novo-chamado.css - Estilos específicos do formulário de novo chamado */
+
+/* CONTAINER PRINCIPAL */
+.form-container {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.form-header h2 {
+    color: #004a8f;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.form-header p {
+    color: #666;
+    font-size: 16px;
+}
+
+/* FORMULÁRIO */
+.ticket-form {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+}
+
+.form-section {
+    margin-bottom: 30px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid #eee;
+}
+
+.form-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.form-section h3 {
+    color: #0066cc;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #444;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s;
+    background: #f9f9f9;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #0066cc;
+    background: white;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: inherit;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* ÁREA DE UPLOAD */
+.upload-area {
+    border: 2px dashed #ddd;
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #fafafa;
+    margin-bottom: 15px;
+}
+
+.upload-area:hover {
+    border-color: #0066cc;
+    background: #f0f7ff;
+}
+
+.upload-area i {
+    font-size: 48px;
+    color: #0066cc;
+    margin-bottom: 15px;
+}
+
+.upload-area p {
+    margin: 10px 0;
+    font-weight: 500;
+}
+
+.upload-hint {
+    display: block;
+    margin-top: 10px;
+    color: #ff8c00;
+    font-size: 14px;
+}
+
+.upload-hint i {
+    margin-right: 5px;
+}
+
+/* CHECKBOX GROUP */
+.checkbox-group {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+/* BOTÕES DO FORMULÁRIO */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 14px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s;
+    min-width: 150px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #0066cc 0%, #004a8f 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 14px rgba(0, 102, 204, 0.2);
+}
+
+.btn-secondary {
+    background: #f5f5f5;
+    color: #666;
+    border: 2px solid #ddd;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+/* PREVIEW MODAL */
+.preview-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.preview-content {
+    background: white;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.preview-header {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.preview-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #004a8f;
+}
+
+.preview-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.preview-body {
+    padding: 20px;
+}
+
+.preview-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.preview-section:last-child {
+    border-bottom: none;
+}
+
+.preview-section h4 {
+    color: #0066cc;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.preview-footer {
+    padding: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}
+
+.preview-notice {
+    background: #f0f7ff;
+    border-left: 4px solid #0066cc;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+/* MENSAGENS */
+.message-box {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    display: none;
+    z-index: 1001;
+    max-width: 350px;
+}
+
+.message-box.show {
+    display: block;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* UTILIDADES */
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.file-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-remove {
+    color: #dc3545;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+/* RESPONSIVIDADE */
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions button {
+        width: 100%;
+    }
+    
+    .checkbox-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .top-nav {
+        padding: 15px;
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .nav-left, .nav-right {
+        width: 100%;
+        justify-content: center;
+    }
+}

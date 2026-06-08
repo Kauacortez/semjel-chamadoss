@@ -1,0 +1,9 @@
+/* formulario.css - Formulários */
+.form-container { max-width: 900px; margin: 20px auto; padding: 0 20px; }
+.ticket-form { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+
+.form-section { margin-bottom: 40px; padding-bottom: 30px; border-bottom: 1px solid #eee; }
+.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+.btn-primary { background: linear-gradient(135deg, #0066cc 0%, #004a8f 100%); color: white; 
+               padding: 14px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; }
