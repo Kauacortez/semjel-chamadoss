@@ -193,14 +193,21 @@
                                     <th>Categoria</th>
                                     <th>Prioridade</th>
                                     <th>Status</th>
-                                    <th>Data</th>
+                                    <th>Prazo SLA</th>
+                                    <th>Técnico</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="tabelaChamados">
-                                <tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>
+                                <tr class="loading-row"><td colspan="10"><div class="spinner"></div></td></tr>
                             </tbody>
                         </table>
+                    </div>
+                    <!-- Paginação -->
+                    <div class="pagination-bar" id="paginacaoBar" style="display:none">
+                        <button class="btn-page" id="btnPaginaAnterior"><i class="fas fa-chevron-left"></i> Anterior</button>
+                        <span id="paginacaoInfo" style="font-size:13px;color:var(--text-muted)">Página 1 de 1</span>
+                        <button class="btn-page" id="btnProximaPagina">Próxima <i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -210,6 +217,9 @@
                 <div class="table-card">
                     <div class="table-card-header">
                         <h3><i class="fas fa-users" style="color:var(--primary)"></i> Usuários Cadastrados</h3>
+                        <button class="btn-sm btn-success" id="btnNovoUsuario">
+                            <i class="fas fa-user-plus"></i> Novo Usuário
+                        </button>
                     </div>
                     <div style="overflow-x:auto">
                         <table class="tickets-table">
@@ -226,7 +236,7 @@
                                 </tr>
                             </thead>
                             <tbody id="tabelaUsuarios">
-                                <tr class="loading-row"><td colspan="7"><div class="spinner"></div></td></tr>
+                                <tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -237,7 +247,7 @@
     </div>
 </div>
 
-<!-- ══════════════ MODAL DETALHES ══════════════ -->
+<!-- ══════════════ MODAL DETALHES CHAMADO ══════════════ -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
         <div class="modal-header">
@@ -280,6 +290,7 @@
                 <div class="detail-label">Papel (Permissão)</div>
                 <select class="status-select" id="editUsuarioPapel">
                     <option value="usuario">👤 Usuário Comum</option>
+                    <option value="tecnico">🔧 Técnico TI</option>
                     <option value="admin">🛡️ Administrador (TI)</option>
                 </select>
             </div>
@@ -300,12 +311,54 @@
     </div>
 </div>
 
+<!-- Modal Criar Novo Usuário -->
+<div class="modal-overlay" id="modalCriarUsuarioOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>➕ Criar Novo Usuário</h3>
+            <button class="modal-close" id="btnFecharModalCriarTop">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-row">
+                <div class="detail-label">Nome Completo *</div>
+                <input type="text" class="status-select" id="novoUsuarioNome" placeholder="Ex: João Silva" maxlength="100">
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Email institucional *</div>
+                <input type="email" class="status-select" id="novoUsuarioEmail" placeholder="joao.silva@semjel.gov.br" maxlength="100">
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Senha inicial *</div>
+                <input type="password" class="status-select" id="novoUsuarioSenha" placeholder="Mínimo 6 caracteres" maxlength="64">
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Setor</div>
+                <input type="text" class="status-select" id="novoUsuarioSetor" placeholder="Ex: Administrativo" maxlength="80">
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Papel (Permissão)</div>
+                <select class="status-select" id="novoUsuarioPapel">
+                    <option value="usuario">👤 Usuário Comum</option>
+                    <option value="tecnico">🔧 Técnico TI</option>
+                    <option value="admin">🛡️ Administrador (TI)</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-sm btn-primary" id="btnFecharModalCriarBottom">Cancelar</button>
+            <button class="btn-sm btn-success" id="btnConfirmarCriarUsuario">
+                <i class="fas fa-user-plus"></i> Criar Usuário
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast">
     <i id="toastIcon"></i>
     <span id="toastMsg"></span>
 </div>
 
-<script src="js/admin.js?v=3"></script>
+<script src="js/admin.js?v=4"></script>
 </body>
 </html>

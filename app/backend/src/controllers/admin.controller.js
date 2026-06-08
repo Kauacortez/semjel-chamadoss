@@ -302,6 +302,49 @@ async function atualizarUsuario(req, res) {
     }
 }
 
+// ─── Criar usuário pelo painel admin ──────────────────────────────────────
+async function criarUsuario(req, res) {
+    try {
+        const { nome, email, senha, setor, papel } = req.body;
+
+        if (!nome || !email || !senha) {
+            return res.status(400).json({ success: false, message: 'Nome, email e senha são obrigatórios.' });
+        }
+
+        const emailLimpo = email.trim().toLowerCase();
+        if (!emailLimpo.endsWith('@semjel.gov.br')) {
+            return res.status(400).json({ success: false, message: 'Use email institucional @semjel.gov.br' });
+        }
+        if (senha.length < 6) {
+            return res.status(400).json({ success: false, message: 'Senha deve ter no mínimo 6 caracteres.' });
+        }
+
+        const papeisPermitidos = ['usuario', 'tecnico', 'admin'];
+        const papelFinal = papeisPermitidos.includes(papel) ? papel : 'usuario';
+
+        // Verificar se já existe
+        const existe = await database.get('SELECT id FROM usuarios WHERE email = $1', [emailLimpo]);
+        if (existe) {
+            return res.status(409).json({ success: false, message: 'Já existe um usuário com este email.' });
+        }
+
+        const bcrypt = require('bcryptjs');
+        const senhaHash = await bcrypt.hash(senha, 10);
+
+        const novoUsuario = await database.get(
+            `INSERT INTO usuarios (nome, email, senha_hash, setor, papel)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, nome, email, setor, papel, ativo, criado_em`,
+            [nome.trim(), emailLimpo, senhaHash, (setor || 'A Definir').trim(), papelFinal]
+        );
+
+        res.status(201).json({ success: true, message: 'Usuário criado com sucesso!', usuario: novoUsuario });
+    } catch (error) {
+        console.error('[ADMIN] Erro ao criar usuário:', error.message);
+        res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+    }
+}
+
 module.exports = {
     listarTodosChamados,
     detalhesChamado,
@@ -311,5 +354,6 @@ module.exports = {
     listarUsuarios,
     listarTecnicos,
     listarObservacoes,
-    atualizarUsuario
+    atualizarUsuario,
+    criarUsuario
 };

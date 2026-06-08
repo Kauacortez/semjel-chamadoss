@@ -463,3 +463,35 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
     .stats-grid { grid-template-columns: 1fr 1fr; }
     .filter-bar { flex-direction: column; }
 }
+
+/* ── Paginação ────────────────────────────────────────────────────────── */
+.pagination-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+}
+.btn-page {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-page:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.btn-page:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+

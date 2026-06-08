@@ -14,7 +14,8 @@ const {
     listarUsuarios,
     listarTecnicos,
     listarObservacoes,
-    atualizarUsuario
+    atualizarUsuario,
+    criarUsuario
 } = require('../controllers/admin.controller');
 
 // Aplicar middlewares em TODAS as rotas deste router
@@ -41,6 +42,9 @@ router.get('/estatisticas', estatisticasGlobais);
 
 // GET  /api/admin/usuarios               → Lista todos os usuários
 router.get('/usuarios', listarUsuarios);
+
+// POST /api/admin/usuarios               → Criar novo usuário (pelo admin)
+router.post('/usuarios', criarUsuario);
 
 // GET  /api/admin/tecnicos               → Lista técnicos disponíveis
 router.get('/tecnicos', listarTecnicos);
