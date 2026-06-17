@@ -291,6 +291,12 @@ async function enviarChamado() {
             body: JSON.stringify(dados)
         });
         
+        if (response.status === 401) {
+            localStorage.clear();
+            window.location.href = 'index.html';
+            return;
+        }
+
         if (response.ok) {
             const resultado = await response.json();
             

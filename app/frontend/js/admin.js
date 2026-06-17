@@ -16,7 +16,7 @@ const paginacao = { atual: 1, total: 1, limit: 20 };
 
 // ─── Inicialização ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    verificarAdminOuRedirecionar();
+    if (!verificarAdminOuRedirecionar()) return;
 
     function addEvt(id, cb) {
         const el = document.getElementById(id);
@@ -76,12 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
 // ─── Verificar Autenticação ────────────────────────────────────────────────
 function verificarAdminOuRedirecionar() {
     const token = localStorage.getItem('semjel_token');
-    if (!token) { window.location.replace('index.html'); return; }
+    if (!token) { window.location.replace('index.html'); return false; }
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp && Date.now() / 1000 > payload.exp) { limparSessaoEIr('index.html'); return; }
-        if (payload.papel !== 'admin') { window.location.replace('dashboard.html'); return; }
-    } catch { limparSessaoEIr('index.html'); }
+        if (payload.exp && Date.now() / 1000 > payload.exp) { limparSessaoEIr('index.html'); return false; }
+        if (payload.papel !== 'admin') { window.location.replace('dashboard.html'); return false; }
+        return true;
+    } catch { limparSessaoEIr('index.html'); return false; }
 }
 
 // ─── Carregar dados iniciais ───────────────────────────────────────────────
@@ -651,10 +652,18 @@ function renderizarErro(tbodyId, cols) {
 }
 
 // ─── Fetch com token ───────────────────────────────────────────────────────
-function apiFetch(endpoint, opts = {}) {
+async function apiFetch(endpoint, opts = {}) {
     const token = localStorage.getItem('semjel_token');
     const headers = { 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) };
-    return fetch(`${API_URL}${endpoint}`, { ...opts, headers });
+    try {
+        const resp = await fetch(`${API_URL}${endpoint}`, { ...opts, headers });
+        if (resp.status === 401) {
+            limparSessaoEIr('index.html');
+        }
+        return resp;
+    } catch (err) {
+        throw err;
+    }
 }
 
 // ─── Toast ─────────────────────────────────────────────────────────────────

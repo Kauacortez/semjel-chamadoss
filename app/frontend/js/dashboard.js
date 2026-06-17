@@ -31,6 +31,12 @@ async function carregarDashboard() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
+        if (response.status === 401) {
+            localStorage.clear();
+            window.location.href = 'index.html';
+            return;
+        }
+        
         if (!response.ok) throw new Error('Erro API');
         
         const data = await response.json();
