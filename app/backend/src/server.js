@@ -132,12 +132,16 @@ app.use((req, res) => {
 // =============================================================================
 // Iniciar servidor
 // =============================================================================
-const PORT = SERVER_PORT;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('='.repeat(50));
-    console.log(`🚀 Servidor SEMJEL: http://localhost:${PORT}`);
-    console.log(`🗄️  Banco: PostgreSQL (Neon)`);
-    console.log(`🔒 Segurança: Helmet + Rate-Limit ativos`);
-    console.log(`🌐 Ambiente: ${NODE_ENV}`);
-    console.log('='.repeat(50));
-});
+if (process.env.VERCEL !== '1') {
+    const PORT = SERVER_PORT;
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log('='.repeat(50));
+        console.log(`🚀 Servidor SEMJEL: http://localhost:${PORT}`);
+        console.log(`🗄️  Banco: PostgreSQL (Neon)`);
+        console.log(`🔒 Segurança: Helmet + Rate-Limit ativos`);
+        console.log(`🌐 Ambiente: ${NODE_ENV}`);
+        console.log('='.repeat(50));
+    });
+}
+
+module.exports = app;

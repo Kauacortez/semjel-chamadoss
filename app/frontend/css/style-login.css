@@ -277,3 +277,20 @@
         align-self: flex-end;
     }
 }
+
+/* ALERTA DE INICIALIZAÇÃO DO BANCO DE DADOS */
+.db-warning {
+    background: #fff9db;
+    border-left: 4px solid #f59f00;
+    padding: 12px 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #8c6a00;
+    line-height: 1.4;
+}
+
+.db-warning i {
+    color: #f59f00;
+    margin-right: 8px;
+}

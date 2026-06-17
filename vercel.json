@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app/backend/src/server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "app/frontend/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "app/backend/src/server.js"
+    },
+    {
+      "src": "/css/(.*)",
+      "dest": "app/frontend/css/$1"
+    },
+    {
+      "src": "/js/(.*)",
+      "dest": "app/frontend/js/$1"
+    },
+    {
+      "src": "/admin",
+      "dest": "app/frontend/admin-dashboard.html"
+    },
+    {
+      "src": "/dashboard",
+      "dest": "app/frontend/dashboard.html"
+    },
+    {
+      "src": "/novo-chamado",
+      "dest": "app/frontend/novo-chamado.html"
+    },
+    {
+      "src": "/login",
+      "dest": "app/frontend/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "app/frontend/$1"
+    }
+  ]
+}
