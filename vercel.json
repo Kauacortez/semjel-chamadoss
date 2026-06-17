@@ -43,5 +43,10 @@
       "src": "/(.*)",
       "dest": "app/frontend/$1"
     }
-  ]
+  ],
+  "functions": {
+    "app/backend/src/server.js": {
+      "maxDuration": 60
+    }
+  }
 }

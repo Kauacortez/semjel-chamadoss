@@ -134,10 +134,12 @@ async function criarTabelas() {
     }
 }
 
-// Inicializar tabelas ao carregar o módulo
-criarTabelas().catch((err) => {
-    console.error('❌ Falha crítica no banco de dados:', err.message);
-    process.exit(1);
-});
+// Inicializar tabelas ao carregar o módulo (apenas fora da Vercel)
+if (process.env.VERCEL !== '1') {
+    criarTabelas().catch((err) => {
+        console.error('❌ Falha crítica no banco de dados:', err.message);
+        process.exit(1);
+    });
+}
 
 module.exports = { database, pool };
