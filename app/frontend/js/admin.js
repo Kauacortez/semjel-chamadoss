@@ -4,9 +4,11 @@
 // =============================================================================
 'use strict';
 
-const API_URL = (window.location.port === '3000' || window.location.port === '')
-    ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/api`
-    : '/api';
+const API_URL = window.location.protocol === 'file:'
+    ? 'http://localhost:3000/api'
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? `http://${window.location.hostname}:${window.location.port || 3000}/api`
+        : '/api';
 
 let chamadoAtualId = null;
 let usuarioAtualId = null;
