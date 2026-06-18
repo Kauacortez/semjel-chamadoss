@@ -296,6 +296,139 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* ── Modal styling ─────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: #fff;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+            transform: scale(0.95);
+            transition: transform 0.25s ease;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #64748b;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #475569;
+        }
+
+        .btn-sm.btn-primary {
+            background: #1a56db;
+            color: #fff;
+            border-color: #1a56db;
+        }
+
+        .detail-row {
+            display: flex;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 10px 0;
+            align-items: flex-start;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            width: 140px;
+            font-weight: 600;
+            color: #64748b;
+            flex-shrink: 0;
+        }
+
+        .detail-value {
+            flex: 1;
+            color: #1e293b;
+            word-break: break-word;
+        }
+
+        .btn-ver {
+            background: #eff6ff;
+            color: #1a56db;
+            border: 1px solid #bfdbfe;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-ver:hover {
+            background: #1a56db;
+            color: #fff;
+            border-color: #1a56db;
+        }
     </style>
 </head>
 
@@ -375,11 +508,12 @@
                             <th>Prioridade</th>
                             <th>Status</th>
                             <th>Data</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tabelaChamados">
                         <tr>
-                            <td colspan="6" style="text-align:center;padding:32px">
+                            <td colspan="7" style="text-align:center;padding:32px">
                                 <div class="spinner"></div>
                             </td>
                         </tr>
@@ -389,68 +523,80 @@
         </main>
     </div>
 
+    <!-- Modal de Detalhes -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitulo">Detalhes do Chamado</h3>
+                <button class="modal-close" id="btnFecharModalTop">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Preenchido dinamicamente pelo JS -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-sm btn-primary" id="btnFecharModalBottom">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase SDK e cliente -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabaseClient.js"></script>
+    <script src="js/auth.js"></script>
+
     <script>
         // ==========================================================================
-        // dashboard inline — segurança + dados reais da API
-        // SEGURANÇA: textContent em todos os campos do banco (anti-XSS)
+        // dashboard inline — integração Supabase
         // ==========================================================================
         'use strict';
 
-        // Usa URL relativa em produção (Vercel/Render) e absoluta só para arquivo local
-        const API_URL = window.location.protocol === 'file:'
-            ? 'http://localhost:3000/api'
-            : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-                ? `http://${window.location.hostname}:${window.location.port || 3000}/api`
-                : '/api';
+        // Cache local de chamados
+        let chamadosCache = [];
 
         // ── Auth guard ─────────────────────────────────────────────────────────
         (function guardPage() {
-            const token = localStorage.getItem('semjel_token');
+            const isLoggedIn = localStorage.getItem('semjel_logged_in');
             const papel = localStorage.getItem('semjel_user_papel');
-            if (!token) { window.location.replace('index.html'); return; }
+            if (isLoggedIn !== 'true') { window.location.replace('index.html'); return; }
 
             // Admin não deve estar aqui
             if (papel === 'admin') { window.location.replace('admin-dashboard.html'); return; }
-
-            // Verificar expiração do token sem lib externa
-            try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                if (payload.exp && Date.now() / 1000 > payload.exp) {
-                    limparSessao(); return;
-                }
-            } catch { limparSessao(); }
         })();
 
         // ── Inicializar ────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', () => {
-            // SEGURANÇA: textContent
             document.getElementById('userName').textContent =
                 localStorage.getItem('semjel_user_name') || 'Usuário';
 
             const btnLogout = document.getElementById('btnLogoutNav');
             if (btnLogout) btnLogout.addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
+            // Eventos do modal
+            document.getElementById('btnFecharModalTop').addEventListener('click', fecharModal);
+            document.getElementById('btnFecharModalBottom').addEventListener('click', fecharModal);
+
             carregarDashboard();
         });
 
         async function carregarDashboard() {
-            const token = localStorage.getItem('semjel_token');
+            const client = window.supabaseClient;
             const userId = localStorage.getItem('semjel_user_id');
-            if (!token || !userId) { limparSessao(); return; }
+            if (!client || !userId) { limparSessao(); return; }
 
             try {
-                const resp = await fetch(`${API_URL}/chamados/usuario/${userId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const { data: chamados, error } = await client
+                    .from('chamados')
+                    .select('*')
+                    .eq('usuario_id', userId)
+                    .order('data_abertura', { ascending: false });
 
-                if (resp.status === 401 || resp.status === 403) { limparSessao(); return; }
-                if (!resp.ok) throw new Error('API error');
+                if (error) throw error;
 
-                const data = await resp.json();
-                const chamados = data.chamados || data || [];
-                renderizarDashboard(chamados);
+                chamadosCache = chamados || [];
+                renderizarDashboard(chamadosCache);
 
-            } catch {
+            } catch (err) {
+                console.error("[DASHBOARD ERROR]", err);
                 renderizarErro();
             }
         }
@@ -461,7 +607,6 @@
             const andamento = chamados.filter(c => c.status === 'em_andamento').length;
             const resolvidos = chamados.filter(c => c.status === 'resolvido' || c.status === 'fechado').length;
 
-            // SEGURANÇA: textContent
             document.getElementById('countAbertos').textContent = abertos;
             document.getElementById('countAndamento').textContent = andamento;
             document.getElementById('countResolvidos').textContent = resolvidos;
@@ -472,7 +617,7 @@
             if (!chamados.length) {
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
-                td.colSpan = 6;
+                td.colSpan = 7;
                 td.innerHTML = `<div class="empty-state">
                 <i class="fas fa-inbox"></i>
                 <p style="font-size:16px;margin-bottom:8px">Nenhum chamado aberto</p>
@@ -486,14 +631,12 @@
                 return;
             }
 
-            // Ordenar por data desc
-            chamados.sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
             chamados.forEach(c => {
                 const tr = document.createElement('tr');
                 tr.appendChild(td_text(`CH-${String(c.id).padStart(4, '0')}`));
                 tr.appendChild(td_text(c.titulo));
-                tr.appendChild(td_text(c.categoria));
-                tr.appendChild(td_text(c.prioridade));
+                tr.appendChild(td_text(initCap(c.categoria)));
+                tr.appendChild(td_text(initCap(c.prioridade)));
 
                 // Badge status
                 const tdStatus = document.createElement('td');
@@ -506,24 +649,105 @@
                 };
                 const [cls, lbl] = mapa[c.status] || ['badge-fechado', c.status];
                 badge.className = `badge ${cls}`;
-                badge.textContent = lbl; // textContent — anti-XSS
+                badge.textContent = lbl;
                 tdStatus.appendChild(badge);
                 tr.appendChild(tdStatus);
 
                 tr.appendChild(td_text(formatarData(c.data_abertura)));
+
+                // Botão de ação (Ver)
+                const tdAcao = document.createElement('td');
+                const btnVer = document.createElement('button');
+                btnVer.className = 'btn-ver';
+                btnVer.textContent = 'Ver';
+                btnVer.addEventListener('click', () => verDetalhes(c.id));
+                tdAcao.appendChild(btnVer);
+                tr.appendChild(tdAcao);
+
                 tbody.appendChild(tr);
             });
         }
 
+        function verDetalhes(id) {
+            const chamado = chamadosCache.find(c => c.id === id);
+            if (!chamado) return;
+
+            document.getElementById('modalTitulo').textContent = `Chamado CH-${String(chamado.id).padStart(4, '0')}`;
+            
+            const slaFormatado = chamado.prazo_sla ? new Date(chamado.prazo_sla).toLocaleString('pt-BR') : 'A Definir';
+            const resolucaoFormatada = chamado.data_resolucao ? new Date(chamado.data_resolucao).toLocaleString('pt-BR') : 'Pendente';
+            
+            let anexoHTML = 'Não há anexos';
+            if (chamado.anexo_url) {
+                anexoHTML = `<a href="${chamado.anexo_url}" target="_blank" class="btn-sm btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                    <i class="fas fa-external-link-alt"></i> Visualizar Anexo
+                </a>`;
+            }
+
+            const bodyHTML = `
+                <div class="detail-row">
+                    <div class="detail-label">Título</div>
+                    <div class="detail-value">${escapeHTML(chamado.titulo)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Descrição</div>
+                    <div class="detail-value" style="white-space: pre-wrap;">${escapeHTML(chamado.descricao)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Categoria</div>
+                    <div class="detail-value">${initCap(chamado.categoria)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Prioridade</div>
+                    <div class="detail-value">${initCap(chamado.prioridade)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Status</div>
+                    <div class="detail-value">${initCap(chamado.status)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Setor</div>
+                    <div class="detail-value">${escapeHTML(chamado.setor_solicitante)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Telefone</div>
+                    <div class="detail-value">${escapeHTML(chamado.telefone_contato || 'Não informado')}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Prazo SLA</div>
+                    <div class="detail-value">${slaFormatado}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Técnico Atribuído</div>
+                    <div class="detail-value">${escapeHTML(chamado.tecnico_nome || 'Pendente de Atribuição')}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Resolução</div>
+                    <div class="detail-value">${resolucaoFormatada}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Anexo</div>
+                    <div class="detail-value">${anexoHTML}</div>
+                </div>
+            `;
+
+            document.getElementById('modalBody').innerHTML = bodyHTML;
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function fecharModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
         function renderizarErro() {
             document.getElementById('tabelaChamados').innerHTML =
-                `<tr><td colspan="6" style="text-align:center;padding:32px;color:#c81e1e">
+                `<tr><td colspan="7" style="text-align:center;padding:32px;color:#c81e1e">
                 <i class="fas fa-exclamation-triangle"></i>
                 Não foi possível carregar os dados. Verifique a conexão.
             </td></tr>`;
         }
 
-        // Helper: criar td com textContent seguro
+        // Helpers
         function td_text(val) {
             const c = document.createElement('td');
             c.textContent = val ?? '—';
@@ -535,14 +759,25 @@
             try { return new Date(str).toLocaleDateString('pt-BR'); } catch { return str; }
         }
 
+        function initCap(str) {
+            if (!str) return '—';
+            return str.replace('_', ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         function limparSessao() {
             ['semjel_token', 'semjel_logged_in', 'semjel_user_email',
                 'semjel_user_name', 'semjel_user_id', 'semjel_user_papel'].forEach(k => localStorage.removeItem(k));
             window.location.replace('index.html');
-        }
-
-        function logout() {
-            if (confirm('Deseja sair do sistema?')) limparSessao();
         }
     </script>
 </body>

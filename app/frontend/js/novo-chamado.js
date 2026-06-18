@@ -1,10 +1,7 @@
-// novo-chamado.js - Sistema de criação de chamados
-// URL da API: relativa em produção (Vercel/Render), absoluta só em localhost
-const API_URL = window.location.protocol === 'file:'
-    ? 'http://localhost:3000/api'
-    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? `http://${window.location.hostname}:${window.location.port || 3000}/api`
-        : '/api';
+// =============================================================================
+// novo-chamado.js — Criação de Chamados com Supabase
+// =============================================================================
+'use strict';
 
 // Variáveis globais
 let files = [];
@@ -25,8 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Configurar upload de arquivos
     setupFileUpload();
     
-    // Alerta de Inicialização para confirmar que a versão NOVA carregou
-    console.log('[DEBUG] novo-chamado.js V3 CARREGADO! Eventos estão sendo vinculados.');
+    console.log('[DEBUG] novo-chamado.js Supabase V1 CARREGADO!');
 
     // Configurar envio do formulário
     document.getElementById('formNovoChamado').addEventListener('submit', handleSubmit);
@@ -38,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnPreviewCloseBottom')?.addEventListener('click', (e) => { e.preventDefault(); fecharPreview(); });
     document.getElementById('btnConfirmarEnviar')?.addEventListener('click', (e) => { e.preventDefault(); enviarChamado(); });
 
-    // Event delegation for dynamically generated delete buttons
+    // Event delegation para remover arquivo
     document.getElementById('fileList')?.addEventListener('click', (e) => {
         const btn = e.target.closest('.file-remove');
         if (btn) {
@@ -48,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Auto-preenchimento para desenvolvimento
-    if (window.location.hostname === 'localhost' || window.location.hostname.includes('192.168.')) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         autoFillForDevelopment();
     }
 });
@@ -193,9 +189,7 @@ async function handleSubmit(e) {
         descricao: document.getElementById('descricao').value,
         telefone: document.getElementById('telefone').value || '',
         notificar_email: document.getElementById('notificarEmail').checked,
-        notificar_whatsapp: document.getElementById('notificarWhatsapp').checked,
-        usuario_id: localStorage.getItem('semjel_user_id') || '1',
-        status: 'aberto'
+        notificar_whatsapp: document.getElementById('notificarWhatsapp').checked
     };
     
     // Mostrar preview antes de enviar
@@ -267,68 +261,119 @@ function fecharPreview() {
     document.getElementById('previewModal').classList.add('hidden');
 }
 
-// Enviar chamado para API REAL
+// Calcula o prazo SLA baseado na prioridade
+function calcularSLA(prioridade) {
+    const agora = new Date();
+    const horas = { urgente: 4, alta: 24, normal: 72, baixa: 168 };
+    agora.setHours(agora.getHours() + (horas[prioridade] || 72));
+    return agora.toISOString();
+}
+
+// Enviar chamado para o Supabase
 async function enviarChamado() {
     const submitBtn = document.querySelector('#previewModal .btn-primary');
     const originalText = submitBtn.innerHTML;
     
-    // Mostrar loading
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
     submitBtn.disabled = true;
     
-    const token = localStorage.getItem('semjel_token');
+    const client = window.supabaseClient;
     const dados = window.dadosChamadoParaEnviar;
-    
-    console.log('[DEBUG] enviarChamado: Iniciando FETCH para', API_URL + '/chamados');
-    console.log('[DEBUG] Payload:', dados);
+
+    if (!client) {
+        alert('Erro ao conectar ao Supabase. Tente novamente.');
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+        return;
+    }
 
     try {
-        // ENVIO REAL PARA API
-        const response = await fetch(`${API_URL}/chamados`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(dados)
-        });
-        
-        if (response.status === 401) {
-            localStorage.clear();
-            window.location.href = 'index.html';
-            return;
+        let anexoUrl = null;
+
+        // 1. Upload do anexo (se houver arquivo selecionado)
+        if (files.length > 0) {
+            const file = files[0]; // Focando no primeiro arquivo
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+            const filePath = `chamados/${fileName}`;
+
+            const { data: uploadData, error: uploadError } = await client.storage
+                .from('anexos')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                console.error("[UPLOAD ERROR]", uploadError);
+                throw new Error(`Falha no upload do anexo: ${uploadError.message}`);
+            }
+
+            // Obter URL pública do anexo
+            const { data: urlData } = client.storage
+                .from('anexos')
+                .getPublicUrl(filePath);
+
+            anexoUrl = urlData.publicUrl;
         }
 
-        if (response.ok) {
-            const resultado = await response.json();
-            
-            // Mensagem de sucesso
-            const protocolo = resultado.id ? `CH-${String(resultado.id).padStart(4, '0')}` : 'CH-NOVO';
-            showMessage(`✅ Chamado criado com sucesso! Protocolo: ${protocolo}`, 'success');
-            
-            // Limpar formulário
-            document.getElementById('formNovoChamado').reset();
-            files = [];
-            updateFileList();
-            
-            // Fechar preview
-            fecharPreview();
-            
-            // Redirecionar após 3 segundos
-            setTimeout(() => {
-                console.log('[DEBUG] Redirecionando para dashboard...');
-                window.location.href = 'dashboard.html';
-            }, 3000);
-            
-        } else {
-            const erro = await response.json();
-            throw new Error(erro.message || 'Erro ao criar chamado');
+        // 2. Coletar dados do perfil do usuário logado
+        const userId = localStorage.getItem('semjel_user_id');
+        const userName = localStorage.getItem('semjel_user_name');
+        
+        const { data: userProfile, error: profileError } = await client
+            .from('usuarios')
+            .select('setor')
+            .eq('id', userId)
+            .single();
+
+        if (profileError) {
+            throw new Error(`Erro ao buscar dados do usuário: ${profileError.message}`);
         }
+
+        const userSetor = userProfile?.setor || 'A Definir';
+        const prazoSla = calcularSLA(dados.prioridade);
+
+        // 3. Salvar chamado no banco de dados
+        const { data: ticket, error: ticketError } = await client
+            .from('chamados')
+            .insert([{
+                titulo: dados.titulo,
+                descricao: dados.descricao,
+                categoria: dados.categoria,
+                prioridade: dados.prioridade,
+                status: 'aberto',
+                usuario_id: userId,
+                usuario_nome: userName,
+                usuario_setor: userSetor,
+                setor_solicitante: dados.setor,
+                telefone_contato: dados.telefone,
+                prazo_sla: prazoSla,
+                anexo_url: anexoUrl
+            }])
+            .select()
+            .single();
+
+        if (ticketError) {
+            throw ticketError;
+        }
+
+        const protocolo = ticket.id ? `CH-${String(ticket.id).padStart(4, '0')}` : 'CH-NOVO';
+        showMessage(`✅ Chamado criado com sucesso! Protocolo: ${protocolo}`, 'success');
+        
+        // Limpar formulário
+        document.getElementById('formNovoChamado').reset();
+        files = [];
+        updateFileList();
+        
+        fecharPreview();
+        
+        // Redirecionar após 3 segundos
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
         
     } catch (error) {
-        console.error('[DEBUG] enviarChamado ERRO:', error);
+        console.error('[SUPABASE TICKETS ERROR]', error);
         alert('ERRO AO ENVIAR CHAMADO: ' + error.message);
-        showMessage(`❌ Erro: Falha de conexão com a API (${error.message})`, 'error');
+        showMessage(`❌ Erro: Falha ao registrar chamado (${error.message})`, 'error');
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     }

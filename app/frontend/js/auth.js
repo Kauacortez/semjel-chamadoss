@@ -1,18 +1,7 @@
 // =============================================================================
-// auth.js — Autenticação SEMJEL
-// SEGURANÇA:
-//   - Nenhum login simulado / fallback sem validação real
-//   - Papel do usuário salvo no localStorage para verificação local
-//   - Redirect por papel no JWT
-//   - Auto-fill de credenciais REMOVIDO de produção
+// auth.js — Autenticação SEMJEL com Supabase
 // =============================================================================
 'use strict';
-
-const API_URL = window.location.protocol === 'file:'
-    ? 'http://localhost:3000/api'
-    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? `http://${window.location.hostname}:${window.location.port || 3000}/api`
-        : '/api';
 
 document.addEventListener('DOMContentLoaded', function () {
     const loginForm = document.getElementById('loginForm');
@@ -49,48 +38,127 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
+            // Validar domínio institucional
+            if (!email.endsWith('@semjel.gov.br')) {
+                showMessage('Use o email institucional @semjel.gov.br', 'error');
+                return;
+            }
+
             const submitBtn = loginForm.querySelector('.login-btn');
             const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autenticando...';
             submitBtn.disabled = true;
 
+            const client = window.supabaseClient;
+            if (!client) {
+                showMessage('Erro na inicialização do Supabase. Verifique a configuração.', 'error');
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                return;
+            }
+
             try {
-                const response = await fetch(`${API_URL}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, senha })
+                // 1. Tentar login direto no Supabase Auth
+                let { data, error } = await client.auth.signInWithPassword({
+                    email: email,
+                    password: senha,
                 });
 
-                const data = await response.json();
+                // 2. Se falhar por credenciais inválidas, pode ser um usuário novo (Auto-cadastro)
+                if (error) {
+                    const errorMsg = error.message.toLowerCase();
+                    
+                    if (errorMsg.includes("invalid login credentials") || errorMsg.includes("invalid credentials")) {
+                        // Extrair nome amigável a partir do email
+                        const parteNome = email.split('@')[0];
+                        const nomeCalculado = parteNome
+                            .replace(/[^a-zA-Z.]/g, '')
+                            .split('.')
+                            .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+                            .join(' ');
+                        
+                        const nomeFinal = nomeCalculado || 'Usuário SEMJEL';
 
-                if (response.ok && data.success) {
-                    // Salvar sessão (incluindo papel para verificação local)
-                    localStorage.setItem('semjel_token', data.token);
+                        showMessage('Primeiro acesso detectado. Criando conta...', 'info');
+
+                        // Cadastrar novo usuário (automaticamente insere na tabela public.usuarios via trigger no banco)
+                        const { data: signUpData, error: signUpError } = await client.auth.signUp({
+                            email: email,
+                            password: senha,
+                            options: {
+                                data: {
+                                    nome: nomeFinal,
+                                    setor: 'A Definir',
+                                    papel: 'usuario'
+                                }
+                            }
+                        });
+
+                        if (signUpError) {
+                            throw signUpError;
+                        }
+
+                        // Se o login for automático após cadastro
+                        if (signUpData.session) {
+                            data = signUpData;
+                        } else {
+                            // Caso precise confirmar e-mail (se ativado no Supabase)
+                            showMessage('Cadastro realizado! Por favor, verifique seu e-mail para confirmar a conta.', 'warning');
+                            submitBtn.innerHTML = originalText;
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                    } else {
+                        throw error;
+                    }
+                }
+
+                if (data && data.session) {
+                    const session = data.session;
+                    
+                    // 3. Buscar os detalhes complementares na tabela public.usuarios (cargo, setor, ativo)
+                    const { data: profile, error: profileError } = await client
+                        .from('usuarios')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (profileError) {
+                        throw profileError;
+                    }
+
+                    if (!profile.ativo) {
+                        // Logout caso conta esteja inativa
+                        await client.auth.signOut();
+                        showMessage('Sua conta foi desativada. Entre em contato com a TI.', 'error');
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                    // 4. Salvar dados de sessão no localStorage
+                    localStorage.setItem('semjel_token', session.access_token);
                     localStorage.setItem('semjel_logged_in', 'true');
-                    localStorage.setItem('semjel_user_email', data.user.email);
-                    localStorage.setItem('semjel_user_name', data.user.nome);
-                    localStorage.setItem('semjel_user_id', String(data.user.id));
-                    localStorage.setItem('semjel_user_papel', data.user.papel);
+                    localStorage.setItem('semjel_user_email', profile.email);
+                    localStorage.setItem('semjel_user_name', profile.nome);
+                    localStorage.setItem('semjel_user_id', profile.id);
+                    localStorage.setItem('semjel_user_papel', profile.papel);
 
-                    showMessage('Login realizado! Redirecionando...', 'success');
+                    showMessage('Login realizado com sucesso! Redirecionando...', 'success');
 
-                    // SEGURANÇA: Redirecionar pelo papel retornado pelo servidor
+                    // Redirecionar de acordo com o papel
                     setTimeout(() => {
-                        if (data.user.papel === 'admin') {
+                        if (profile.papel === 'admin') {
                             window.location.href = 'admin-dashboard.html';
                         } else {
                             window.location.href = 'dashboard.html';
                         }
                     }, 1200);
-
-                } else {
-                    showMessage(data.message || 'Credenciais inválidas.', 'error');
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
                 }
 
-            } catch {
-                showMessage('Servidor indisponível. Verifique a conexão.', 'error');
+            } catch (err) {
+                console.error("[AUTH ERROR]", err);
+                showMessage(err.message || 'Erro ao conectar ao servidor de autenticação.', 'error');
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
@@ -103,17 +171,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const papel = localStorage.getItem('semjel_user_papel');
         const page = window.location.pathname;
 
-        // Já logado na página de login → redirecionar para destino certo
         if (isLoggedIn === 'true' && (page.endsWith('index.html') || page.endsWith('/'))) {
             window.location.href = papel === 'admin' ? 'admin-dashboard.html' : 'dashboard.html';
         }
     }
 
-    // Função para mostrar mensagens
+    // Mostrar mensagens
     function showMessage(text, type = 'info') {
         messageText.textContent = text;
-
-        // Ícone baseado no tipo
         const icons = {
             success: 'fas fa-check-circle',
             error: 'fas fa-exclamation-circle',
@@ -129,21 +194,20 @@ document.addEventListener('DOMContentLoaded', function () {
             info: '#17a2b8'
         }[type];
 
-        // Mostrar caixa
         messageBox.classList.remove('hidden');
-
-        // Auto-esconder após 5 segundos
         setTimeout(() => {
             messageBox.classList.add('hidden');
         }, 5000);
     }
-
-    // (login simulado e auto-fill removidos por segurança)
 });
 
 // Logout global
 function logout() {
     if (confirm('Deseja realmente sair do sistema?')) {
+        const client = window.supabaseClient;
+        if (client) {
+            client.auth.signOut().catch(console.error);
+        }
         ['semjel_token', 'semjel_logged_in', 'semjel_user_email',
             'semjel_user_name', 'semjel_user_id', 'semjel_user_papel'].forEach(k => {
                 localStorage.removeItem(k);

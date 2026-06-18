@@ -1,14 +1,7 @@
 // =============================================================================
-// admin.js — Painel Administrativo SEMJEL v2.0
-// Melhorias: paginação, SLA visível, atribuir técnico, criar usuário
+// admin.js — Painel Administrativo SEMJEL com Supabase
 // =============================================================================
 'use strict';
-
-const API_URL = window.location.protocol === 'file:'
-    ? 'http://localhost:3000/api'
-    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? `http://${window.location.hostname}:${window.location.port || 3000}/api`
-        : '/api';
 
 let chamadoAtualId = null;
 let usuarioAtualId = null;
@@ -19,6 +12,12 @@ const paginacao = { atual: 1, total: 1, limit: 20 };
 // ─── Inicialização ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     if (!verificarAdminOuRedirecionar()) return;
+
+    const client = window.supabaseClient;
+    if (!client) {
+        showToast('Erro ao inicializar o cliente Supabase.', 'error');
+        return;
+    }
 
     function addEvt(id, cb) {
         const el = document.getElementById(id);
@@ -66,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Tema
     if (localStorage.getItem('tema_dark') === '1') {
         document.body.classList.add('dark');
-        document.getElementById('themeIcon').classList.replace('fa-moon', 'fa-sun');
+        const themeIcon = document.getElementById('themeIcon');
+        if (themeIcon) themeIcon.classList.replace('fa-moon', 'fa-sun');
     }
 
     document.getElementById('sidebarUserName').textContent =
@@ -77,14 +77,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ─── Verificar Autenticação ────────────────────────────────────────────────
 function verificarAdminOuRedirecionar() {
-    const token = localStorage.getItem('semjel_token');
-    if (!token) { window.location.replace('index.html'); return false; }
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp && Date.now() / 1000 > payload.exp) { limparSessaoEIr('index.html'); return false; }
-        if (payload.papel !== 'admin') { window.location.replace('dashboard.html'); return false; }
-        return true;
-    } catch { limparSessaoEIr('index.html'); return false; }
+    const isLoggedIn = localStorage.getItem('semjel_logged_in');
+    const papel = localStorage.getItem('semjel_user_papel');
+    if (isLoggedIn !== 'true') { window.location.replace('index.html'); return false; }
+    if (papel !== 'admin') { window.location.replace('dashboard.html'); return false; }
+    return true;
 }
 
 // ─── Carregar dados iniciais ───────────────────────────────────────────────
@@ -92,62 +89,97 @@ async function carregarDados() {
     animarRefresh(true);
     await Promise.all([carregarEstatisticas(), carregarChamadosRecentes()]);
     animarRefresh(false);
-    document.getElementById('ultimaAtualizacao').textContent =
-        'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    const lastUpdate = document.getElementById('ultimaAtualizacao');
+    if (lastUpdate) {
+        lastUpdate.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+    }
 }
 
 // ─── Estatísticas Globais ──────────────────────────────────────────────────
 async function carregarEstatisticas() {
+    const client = window.supabaseClient;
     try {
-        const resp = await apiFetch('/admin/estatisticas');
-        if (!resp.ok) return;
-        const { stats } = await resp.json();
-        document.getElementById('statTotal').textContent     = stats.total ?? 0;
-        document.getElementById('statAbertos').textContent   = stats.abertos ?? 0;
-        document.getElementById('statAndamento').textContent = stats.em_andamento ?? 0;
-        document.getElementById('statResolvidos').textContent= stats.resolvidos ?? 0;
-        document.getElementById('statUrgentes').textContent  = stats.urgentes ?? 0;
-    } catch { /* silencioso */ }
+        const { data: chamados, error } = await client
+            .from('chamados')
+            .select('status, prioridade');
+
+        if (error) throw error;
+
+        const stats = {
+            total: chamados.length,
+            abertos: chamados.filter(c => c.status === 'aberto').length,
+            em_andamento: chamados.filter(c => c.status === 'em_andamento').length,
+            resolvidos: chamados.filter(c => c.status === 'resolvido' || c.status === 'fechado').length,
+            urgentes: chamados.filter(c => c.prioridade === 'urgente' && !['resolvido','fechado'].includes(c.status)).length
+        };
+
+        document.getElementById('statTotal').textContent     = stats.total;
+        document.getElementById('statAbertos').textContent   = stats.abertos;
+        document.getElementById('statAndamento').textContent = stats.em_andamento;
+        document.getElementById('statResolvidos').textContent= stats.resolvidos;
+        document.getElementById('statUrgentes').textContent  = stats.urgentes;
+    } catch (err) {
+        console.error("[STATS ERROR]", err);
+    }
 }
 
 // ─── Chamados Recentes (dashboard) ────────────────────────────────────────
 async function carregarChamadosRecentes() {
+    const client = window.supabaseClient;
     try {
-        const resp = await apiFetch('/admin/chamados?limit=8');
-        if (!resp.ok) return;
-        const { chamados } = await resp.json();
+        const { data: chamados, error } = await client
+            .from('chamados')
+            .select('*')
+            .order('data_abertura', { ascending: false })
+            .limit(8);
+
+        if (error) throw error;
         renderizarTabela('tabelaRecentes', chamados, false);
-    } catch { renderizarErro('tabelaRecentes', 8); }
+    } catch (err) {
+        console.error("[RECENT TICKETS ERROR]", err);
+        renderizarErro('tabelaRecentes', 8);
+    }
 }
 
 // ─── Buscar chamados com filtros + paginação ───────────────────────────────
 async function buscarChamados() {
+    const client = window.supabaseClient;
     const busca     = document.getElementById('buscaInput').value.trim();
     const status    = document.getElementById('filtroStatus').value;
     const prioridade= document.getElementById('filtroPrioridade').value;
 
-    const params = new URLSearchParams();
-    if (busca)      params.set('busca', busca);
-    if (status)     params.set('status', status);
-    if (prioridade) params.set('prioridade', prioridade);
-    params.set('page',  paginacao.atual);
-    params.set('limit', paginacao.limit);
-
     mostrarLoading('tabelaChamados', 10);
 
     try {
-        const resp = await apiFetch(`/admin/chamados?${params.toString()}`);
-        if (!resp.ok) throw new Error();
-        const data = await resp.json();
+        let query = client.from('chamados').select('*', { count: 'exact' });
 
-        paginacao.total = data.totalPages || 1;
+        if (status) query = query.eq('status', status);
+        if (prioridade) query = query.eq('prioridade', prioridade);
+        if (busca) {
+            query = query.or(`titulo.ilike.%${busca}%,descricao.ilike.%${busca}%`);
+        }
+
+        // Paginação
+        const from = (paginacao.atual - 1) * paginacao.limit;
+        const to = from + paginacao.limit - 1;
+
+        const { data: chamados, count, error } = await query
+            .order('data_abertura', { ascending: false })
+            .range(from, to);
+
+        if (error) throw error;
+
+        paginacao.total = Math.ceil((count || 0) / paginacao.limit) || 1;
 
         document.getElementById('totalChamadosLabel').textContent =
-            `${data.total} chamado(s) encontrado(s)`;
+            `${count || 0} chamado(s) encontrado(s)`;
 
-        renderizarTabela('tabelaChamados', data.chamados, true);
+        renderizarTabela('tabelaChamados', chamados, true);
         atualizarPaginacao();
-    } catch { renderizarErro('tabelaChamados', 10); }
+    } catch (err) {
+        console.error("[SEARCH TICKETS ERROR]", err);
+        renderizarErro('tabelaChamados', 10);
+    }
 }
 
 // ─── Atualizar controles de paginação ─────────────────────────────────────
@@ -185,11 +217,16 @@ function limparFiltros() {
 
 // ─── Carregar Usuários ─────────────────────────────────────────────────────
 async function carregarUsuarios() {
+    const client = window.supabaseClient;
     mostrarLoading('tabelaUsuarios', 8);
     try {
-        const resp = await apiFetch('/admin/usuarios');
-        if (!resp.ok) throw new Error();
-        const { usuarios } = await resp.json();
+        const { data: usuarios, error } = await client
+            .from('usuarios')
+            .select('*')
+            .order('criado_em', { ascending: false });
+
+        if (error) throw error;
+
         const tbody = document.getElementById('tabelaUsuarios');
         tbody.innerHTML = '';
 
@@ -200,7 +237,7 @@ async function carregarUsuarios() {
 
         usuarios.forEach(u => {
             const tr = document.createElement('tr');
-            tr.appendChild(td(u.id));
+            tr.appendChild(td(u.id.substring(0, 8) + '...'));
             tr.appendChild(td(u.nome));
             tr.appendChild(td(u.email));
             tr.appendChild(td(u.setor));
@@ -231,7 +268,10 @@ async function carregarUsuarios() {
 
             tbody.appendChild(tr);
         });
-    } catch { renderizarErro('tabelaUsuarios', 8); }
+    } catch (err) {
+        console.error("[LOAD USERS ERROR]", err);
+        renderizarErro('tabelaUsuarios', 8);
+    }
 }
 
 // ─── Renderizar tabela de chamados ─────────────────────────────────────────
@@ -253,7 +293,7 @@ function renderizarTabela(tbodyId, chamados, completo) {
         tr.appendChild(td(c.usuario_nome));
         tr.appendChild(td(c.setor_solicitante));
 
-        if (completo) tr.appendChild(td(c.categoria));
+        if (completo) tr.appendChild(td(initCap(c.categoria)));
 
         const tdPrio = document.createElement('td');
         tdPrio.appendChild(criaBadgePrioridade(c.prioridade));
@@ -264,7 +304,6 @@ function renderizarTabela(tbodyId, chamados, completo) {
         tr.appendChild(tdStatus);
 
         if (completo) {
-            // Coluna Prazo SLA com alerta de vencimento
             const tdSla = document.createElement('td');
             if (c.prazo_sla) {
                 const prazo = new Date(c.prazo_sla);
@@ -279,8 +318,6 @@ function renderizarTabela(tbodyId, chamados, completo) {
                 tdSla.textContent = '—';
             }
             tr.appendChild(tdSla);
-
-            // Coluna Técnico responsável
             tr.appendChild(td(c.tecnico_nome || '—'));
         } else {
             tr.appendChild(td(formatarData(c.data_abertura)));
@@ -300,25 +337,38 @@ function renderizarTabela(tbodyId, chamados, completo) {
 
 // ─── Modal Detalhes + Status + Atribuição de Técnico ─────────────────────
 async function abrirModal(chamadoId) {
+    const client = window.supabaseClient;
     chamadoAtualId = chamadoId;
     document.getElementById('modalOverlay').classList.add('show');
     const body = document.getElementById('modalBody');
     body.innerHTML = '<div class="loading-row" style="text-align:center;padding:32px"><div class="spinner"></div></div>';
 
     try {
-        const [respChamado, respTecnicos, respObs] = await Promise.all([
-            apiFetch(`/admin/chamados/${chamadoId}`),
-            apiFetch('/admin/tecnicos'),
-            apiFetch(`/admin/chamados/${chamadoId}/observacoes`)
-        ]);
+        const { data: chamado, error: errorChamado } = await client
+            .from('chamados')
+            .select('*')
+            .eq('id', chamadoId)
+            .single();
 
-        if (!respChamado.ok) throw new Error();
-        const { chamado } = await respChamado.json();
-        const { tecnicos } = respTecnicos.ok ? await respTecnicos.json() : { tecnicos: [] };
-        const { observacoes } = respObs.ok ? await respObs.json() : { observacoes: [] };
+        if (errorChamado) throw errorChamado;
+
+        // Buscar técnicos
+        const { data: tecnicos } = await client
+            .from('usuarios')
+            .select('id, nome')
+            .in('papel', ['admin', 'tecnico'])
+            .eq('ativo', true)
+            .order('nome', { ascending: true });
+
+        // Buscar observações
+        const { data: observacoes } = await client
+            .from('observacoes_chamado')
+            .select('*')
+            .eq('chamado_id', chamadoId)
+            .order('criado_em', { ascending: true });
 
         document.getElementById('modalTitulo').textContent =
-            `Chamado #${String(chamado.id).padStart(4, '0')} — ${chamado.titulo}`;
+            `Chamado #CH-${String(chamado.id).padStart(4, '0')} — ${chamado.titulo}`;
 
         body.innerHTML = '';
 
@@ -333,8 +383,8 @@ async function abrirModal(chamadoId) {
 
         addDetalhe('Solicitante', `${chamado.usuario_nome} — ${chamado.usuario_setor}`);
         addDetalhe('Telefone', chamado.telefone_contato || 'Não informado');
-        addDetalhe('Categoria', chamado.categoria);
-        addDetalhe('Prioridade', chamado.prioridade);
+        addDetalhe('Categoria', initCap(chamado.categoria));
+        addDetalhe('Prioridade', initCap(chamado.prioridade));
         addDetalhe('Data de Abertura', formatarData(chamado.data_abertura));
 
         if (chamado.prazo_sla) {
@@ -348,11 +398,28 @@ async function abrirModal(chamadoId) {
         // Descrição
         const dDesc = document.createElement('div'); dDesc.className = 'detail-row';
         const lDesc = document.createElement('div'); lDesc.className = 'detail-label'; lDesc.textContent = 'Descrição';
-        const vDesc = document.createElement('div'); vDesc.className = 'detail-desc'; vDesc.textContent = chamado.descricao;
+        const vDesc = document.createElement('div'); vDesc.className = 'detail-value';
+        vDesc.style.whiteSpace = 'pre-wrap';
+        vDesc.textContent = chamado.descricao;
         dDesc.appendChild(lDesc); dDesc.appendChild(vDesc); body.appendChild(dDesc);
 
+        // Anexo
+        if (chamado.anexo_url) {
+            const dAnexo = document.createElement('div'); dAnexo.className = 'detail-row';
+            const lAnexo = document.createElement('div'); lAnexo.className = 'detail-label'; lAnexo.textContent = 'Anexo';
+            const vAnexo = document.createElement('div'); vAnexo.className = 'detail-value';
+            const aAnexo = document.createElement('a');
+            aAnexo.href = chamado.anexo_url;
+            aAnexo.target = '_blank';
+            aAnexo.className = 'btn-sm btn-primary';
+            aAnexo.style.textDecoration = 'none';
+            aAnexo.innerHTML = '<i class="fas fa-external-link-alt"></i> Visualizar Anexo';
+            vAnexo.appendChild(aAnexo);
+            dAnexo.appendChild(lAnexo); dAnexo.appendChild(vAnexo); body.appendChild(dAnexo);
+        }
+
         // Timeline de observações
-        if (observacoes.length > 0) {
+        if (observacoes && observacoes.length > 0) {
             const dObs = document.createElement('div'); dObs.className = 'detail-row';
             const lObs = document.createElement('div'); lObs.className = 'detail-label'; lObs.textContent = `Histórico (${observacoes.length})`;
             dObs.appendChild(lObs);
@@ -373,7 +440,7 @@ async function abrirModal(chamadoId) {
         }
 
         // Atribuir Técnico
-        if (tecnicos.length > 0) {
+        if (tecnicos && tecnicos.length > 0) {
             const dTec = document.createElement('div'); dTec.className = 'detail-row';
             const lTec = document.createElement('div'); lTec.className = 'detail-label'; lTec.textContent = 'Atribuir Técnico';
             const selTec = document.createElement('select'); selTec.className = 'status-select'; selTec.id = 'selectTecnico';
@@ -407,15 +474,16 @@ async function abrirModal(chamadoId) {
         dStatus.appendChild(lStatus); dStatus.appendChild(sel); body.appendChild(dStatus);
 
         // Observação
-        const dObs = document.createElement('div'); dObs.className = 'detail-row';
-        const lObs = document.createElement('div'); lObs.className = 'detail-label'; lObs.textContent = 'Observação Técnica (opcional)';
+        const dObsText = document.createElement('div'); dObsText.className = 'detail-row';
+        const lObsText = document.createElement('div'); lObsText.className = 'detail-label'; lObsText.textContent = 'Observação Técnica (opcional)';
         const ta = document.createElement('textarea');
         ta.className = 'obs-textarea'; ta.id = 'obsTexto';
         ta.placeholder = 'Ex: Reiniciei o equipamento e o problema foi solucionado...';
         ta.maxLength = 1000;
-        dObs.appendChild(lObs); dObs.appendChild(ta); body.appendChild(dObs);
+        dObsText.appendChild(lObsText); dObsText.appendChild(ta); body.appendChild(dObsText);
 
-    } catch {
+    } catch (err) {
+        console.error(err);
         body.innerHTML = '';
         const p = document.createElement('p');
         p.textContent = 'Erro ao carregar os detalhes do chamado.';
@@ -425,44 +493,73 @@ async function abrirModal(chamadoId) {
 }
 
 async function salvarStatus() {
-    const novoStatus = document.getElementById('novoStatus')?.value;
+    const client = window.supabaseClient;
+    const nuevoStatus = document.getElementById('novoStatus')?.value;
     const obs        = document.getElementById('obsTexto')?.value || '';
     const tecnicoId  = document.getElementById('selectTecnico')?.value;
 
-    if (!novoStatus || !chamadoAtualId) return;
+    if (!nuevoStatus || !chamadoAtualId) return;
 
     const btn = document.getElementById('btnSalvarStatus');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
 
     try {
-        // Atribuir técnico se selecionado
+        const updateFields = { status: nuevoStatus };
+        
+        if (['resolvido', 'fechado'].includes(nuevoStatus)) {
+            updateFields.data_resolucao = new Date().toISOString();
+        }
+
+        // Se técnico foi alterado
         if (tecnicoId) {
-            await apiFetch(`/admin/chamados/${chamadoAtualId}/atribuir`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tecnico_id: parseInt(tecnicoId) })
-            });
+            const { data: tecInfo } = await client
+                .from('usuarios')
+                .select('nome')
+                .eq('id', tecnicoId)
+                .single();
+
+            updateFields.tecnico_id = tecnicoId;
+            updateFields.tecnico_nome = tecInfo?.nome || 'Técnico';
+            
+            // Forçar status em andamento se foi atribuído
+            if (nuevoStatus === 'aberto') {
+                updateFields.status = 'em_andamento';
+            }
         }
 
-        // Salvar status
-        const resp = await apiFetch(`/admin/chamados/${chamadoAtualId}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: novoStatus, observacao: obs })
-        });
+        const { error: errorUpdate } = await client
+            .from('chamados')
+            .update(updateFields)
+            .eq('id', chamadoAtualId);
 
-        if (resp.ok) {
-            fecharModal();
-            showToast('Chamado atualizado com sucesso!', 'success');
-            carregarDados();
-            buscarChamados();
-        } else {
-            const err = await resp.json();
-            showToast(err.message || 'Erro ao atualizar', 'error');
+        if (errorUpdate) throw errorUpdate;
+
+        // Registrar observação se houver
+        if (obs.trim().length > 0) {
+            const authUserId = localStorage.getItem('semjel_user_id');
+            const authUserName = localStorage.getItem('semjel_user_name');
+
+            const { error: errorObs } = await client
+                .from('observacoes_chamado')
+                .insert([{
+                    chamado_id: chamadoAtualId,
+                    admin_id: authUserId,
+                    admin_nome: authUserName,
+                    observacao: obs.trim()
+                }]);
+
+            if (errorObs) throw errorObs;
         }
-    } catch { showToast('Erro de conexão', 'error'); }
-    finally {
+
+        fecharModal();
+        showToast('Chamado atualizado com sucesso!', 'success');
+        carregarDados();
+        buscarChamados();
+    } catch (err) {
+        console.error(err);
+        showToast('Erro ao atualizar chamado: ' + err.message, 'error');
+    } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-save"></i> Salvar Status';
     }
@@ -485,12 +582,14 @@ function abrirModalUsuario(u) {
     document.getElementById('modalUsuarioOverlay').classList.add('show');
 }
 
+// Fechar modal de edição de usuário
 function fecharModalUsuario() {
     document.getElementById('modalUsuarioOverlay').classList.remove('show');
     usuarioAtualId = null;
 }
 
 async function salvarUsuario() {
+    const client = window.supabaseClient;
     if (!usuarioAtualId) return;
     const papel = document.getElementById('editUsuarioPapel').value;
     const ativo = document.getElementById('editUsuarioAtivo').value === '1';
@@ -500,21 +599,20 @@ async function salvarUsuario() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
 
     try {
-        const resp = await apiFetch(`/admin/usuarios/${usuarioAtualId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ papel, ativo })
-        });
-        if (resp.ok) {
-            fecharModalUsuario();
-            showToast('Usuário atualizado com sucesso!', 'success');
-            carregarUsuarios();
-        } else {
-            const err = await resp.json();
-            showToast(err.message || 'Erro ao atualizar usuário', 'error');
-        }
-    } catch { showToast('Erro de conexão', 'error'); }
-    finally {
+        const { error } = await client
+            .from('usuarios')
+            .update({ papel, ativo })
+            .eq('id', usuarioAtualId);
+
+        if (error) throw error;
+
+        fecharModalUsuario();
+        showToast('Usuário atualizado com sucesso!', 'success');
+        carregarUsuarios();
+    } catch (err) {
+        console.error(err);
+        showToast('Erro ao atualizar usuário: ' + err.message, 'error');
+    } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
     }
@@ -551,22 +649,33 @@ async function confirmarCriarUsuario() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Criando...';
 
     try {
-        const resp = await apiFetch('/admin/usuarios', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, email, senha, setor, papel })
+        // Criar cliente secundário para não alterar o login do admin logado
+        const secondaryClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+            auth: { persistSession: false }
         });
 
-        const data = await resp.json();
-        if (resp.ok && data.success) {
-            fecharModalCriarUsuario();
-            showToast(`Usuário "${nome}" criado com sucesso!`, 'success');
-            carregarUsuarios();
-        } else {
-            showToast(data.message || 'Erro ao criar usuário', 'error');
-        }
-    } catch { showToast('Erro de conexão', 'error'); }
-    finally {
+        // Registrar o usuário (o trigger handle_new_user insere no public.usuarios)
+        const { data, error } = await secondaryClient.auth.signUp({
+            email: email,
+            password: senha,
+            options: {
+                data: {
+                    nome: nome,
+                    setor: setor || 'A Definir',
+                    papel: papel
+                }
+            }
+        });
+
+        if (error) throw error;
+
+        fecharModalCriarUsuario();
+        showToast(`Usuário "${nome}" criado com sucesso!`, 'success');
+        carregarUsuarios();
+    } catch (err) {
+        console.error(err);
+        showToast('Erro ao criar usuário: ' + err.message, 'error');
+    } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar Usuário';
     }
@@ -638,6 +747,11 @@ function formatarData(str) {
     } catch { return str; }
 }
 
+function initCap(str) {
+    if (!str) return '—';
+    return str.replace('_', ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+}
+
 function mostrarLoading(tbodyId, cols) {
     document.getElementById(tbodyId).innerHTML =
         `<tr class="loading-row"><td colspan="${cols}"><div class="spinner"></div></td></tr>`;
@@ -653,31 +767,18 @@ function renderizarErro(tbodyId, cols) {
         `<tr><td colspan="${cols}" style="text-align:center;padding:32px;color:var(--danger)">Erro ao carregar dados. Verifique a conexão.</td></tr>`;
 }
 
-// ─── Fetch com token ───────────────────────────────────────────────────────
-async function apiFetch(endpoint, opts = {}) {
-    const token = localStorage.getItem('semjel_token');
-    const headers = { 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) };
-    try {
-        const resp = await fetch(`${API_URL}${endpoint}`, { ...opts, headers });
-        if (resp.status === 401) {
-            limparSessaoEIr('index.html');
-        }
-        return resp;
-    } catch (err) {
-        throw err;
-    }
-}
-
 // ─── Toast ─────────────────────────────────────────────────────────────────
 function showToast(msg, tipo = 'info') {
     const toast = document.getElementById('toast');
     const icon  = document.getElementById('toastIcon');
     const span  = document.getElementById('toastMsg');
     const icones = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
-    icon.className = `fas ${icones[tipo] || icones.info}`;
-    span.textContent = msg;
-    toast.className = `toast ${tipo} show`;
-    setTimeout(() => { toast.className = 'toast'; }, 4000);
+    if (icon) icon.className = `fas ${icones[tipo] || icones.info}`;
+    if (span) span.textContent = msg;
+    if (toast) {
+        toast.className = `toast ${tipo} show`;
+        setTimeout(() => { toast.className = 'toast'; }, 4000);
+    }
 }
 
 // ─── Dark Mode ─────────────────────────────────────────────────────────────
@@ -685,20 +786,30 @@ function toggleDarkMode() {
     const isDark = document.body.classList.toggle('dark');
     localStorage.setItem('tema_dark', isDark ? '1' : '0');
     const icon = document.getElementById('themeIcon');
-    icon.classList.toggle('fa-moon', !isDark);
-    icon.classList.toggle('fa-sun', isDark);
+    if (icon) {
+        icon.classList.toggle('fa-moon', !isDark);
+        icon.classList.toggle('fa-sun', isDark);
+    }
 }
 
 // ─── Refresh animation ─────────────────────────────────────────────────────
 function animarRefresh(ligado) {
     const icon = document.getElementById('refreshIcon');
-    if (ligado) icon.classList.add('fa-spin');
-    else icon.classList.remove('fa-spin');
+    if (icon) {
+        if (ligado) icon.classList.add('fa-spin');
+        else icon.classList.remove('fa-spin');
+    }
 }
 
 // ─── Logout ────────────────────────────────────────────────────────────────
 function logout() {
-    if (confirm('Deseja realmente sair do sistema?')) { limparSessaoEIr('index.html'); }
+    if (confirm('Deseja realmente sair do sistema?')) {
+        const client = window.supabaseClient;
+        if (client) {
+            client.auth.signOut().catch(console.error);
+        }
+        limparSessaoEIr('index.html');
+    }
 }
 
 function limparSessaoEIr(url) {
