@@ -2,19 +2,11 @@
   "version": 2,
   "builds": [
     {
-      "src": "app/backend/src/server.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "app/frontend/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "app/backend/src/server.js"
-    },
     {
       "src": "/css/(.*)",
       "dest": "app/frontend/css/$1"
@@ -43,10 +35,5 @@
       "src": "/(.*)",
       "dest": "app/frontend/$1"
     }
-  ],
-  "functions": {
-    "app/backend/src/server.js": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }
