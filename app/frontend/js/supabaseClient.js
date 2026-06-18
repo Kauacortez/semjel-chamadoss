@@ -6,7 +6,7 @@
 // ⚠️ ATENÇÃO: Substitua as credenciais abaixo pelas credenciais do seu projeto Supabase.
 // Você encontra essas chaves em: Seu Projeto Supabase -> Settings (Engrenagem) -> API
 const SUPABASE_URL = "https://szwefdyksxhpxhlfrtmq.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_SP_gw0BGlcAB9xg95iUg4g_Hsq9is7B";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6d2VmZHlrc3hocHhobGZpdG1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NTU4NDEsImV4cCI6MjA5NzMzMTg0MX0.jCCSlKn6N0gP_LyOMwQyx8WUfKWerTgjNiCMyv91DBw";
 
 let supabaseClient = null;
 
