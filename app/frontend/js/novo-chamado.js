@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const userName = localStorage.getItem('semjel_user_name') || 'Usuário SEMJEL';
     document.getElementById('userName').textContent = userName;
     
+    // Carregar setores do banco de dados
+    carregarDropdownSetores();
+    
     // Configurar upload de arquivos
     setupFileUpload();
     
@@ -405,4 +408,46 @@ function showMessage(text, type = 'info') {
     setTimeout(() => {
         messageBox.className = 'message-box';
     }, 5000);
+}
+
+// Carregar setores/locais dinamicamente do Supabase
+async function carregarDropdownSetores() {
+    const client = window.supabaseClient;
+    const select = document.getElementById('setor');
+    if (!select) return;
+    
+    if (!client) {
+        select.innerHTML = '<option value="">Erro ao carregar (Supabase Offline)</option>';
+        return;
+    }
+    
+    try {
+        const { data: locais, error } = await client
+            .from('locais')
+            .select('nome')
+            .order('nome', { ascending: true });
+            
+        if (error) throw error;
+        
+        select.innerHTML = '<option value="">Selecione seu setor/local...</option>';
+        
+        if (locais && locais.length > 0) {
+            locais.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.nome;
+                opt.textContent = l.nome;
+                select.appendChild(opt);
+            });
+            // Opção extra caso não listado
+            const optOutro = document.createElement('option');
+            optOutro.value = 'outro';
+            optOutro.textContent = 'Outro (Não listado)';
+            select.appendChild(optOutro);
+        } else {
+            select.innerHTML = '<option value="">Nenhum setor cadastrado. Contate a TI.</option>';
+        }
+    } catch (err) {
+        console.error('[ERRO CARREGAR SETORES]', err);
+        select.innerHTML = '<option value="">Erro ao carregar setores</option>';
+    }
 }

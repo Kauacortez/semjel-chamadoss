@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addEvt('navDashboard',      () => mostrarSecao('dashboard'));
     addEvt('navChamados',       () => mostrarSecao('chamados'));
     addEvt('navUsuarios',       () => mostrarSecao('usuarios'));
+    addEvt('navLocais',         () => mostrarSecao('locais'));
     addEvt('navFiltroAbertos',  () => filtrarRapido('aberto', 'status'));
     addEvt('navFiltroAndamento',() => filtrarRapido('em_andamento', 'status'));
     addEvt('navFiltroResolvidos',()=> filtrarRapido('resolvido', 'status'));
@@ -61,6 +62,12 @@ document.addEventListener('DOMContentLoaded', () => {
     addEvt('btnFecharModalCriarTop',    fecharModalCriarUsuario);
     addEvt('btnFecharModalCriarBottom', fecharModalCriarUsuario);
     addEvt('btnConfirmarCriarUsuario',  confirmarCriarUsuario);
+
+    // Locais/Setores
+    addEvt('btnNovoLocal',              abrirModalLocal);
+    addEvt('btnFecharModalLocalTop',    fecharModalLocal);
+    addEvt('btnFecharModalLocalBottom', fecharModalLocal);
+    addEvt('btnConfirmarCriarLocal',    confirmarCriarLocal);
 
     // Tema
     if (localStorage.getItem('tema_dark') === '1') {
@@ -619,12 +626,39 @@ async function salvarUsuario() {
 }
 
 // ─── Modal Criar Novo Usuário ──────────────────────────────────────────────
-function abrirModalCriarUsuario() {
+async function abrirModalCriarUsuario() {
     document.getElementById('novoUsuarioNome').value  = '';
     document.getElementById('novoUsuarioEmail').value = '';
     document.getElementById('novoUsuarioSenha').value = '';
-    document.getElementById('novoUsuarioSetor').value = '';
     document.getElementById('novoUsuarioPapel').value = 'usuario';
+
+    const selectSetor = document.getElementById('novoUsuarioSetor');
+    if (selectSetor) {
+        selectSetor.innerHTML = '<option value="">Carregando setores...</option>';
+        try {
+            const client = window.supabaseClient;
+            const { data: locais } = await client
+                .from('locais')
+                .select('nome')
+                .order('nome', { ascending: true });
+                
+            selectSetor.innerHTML = '<option value="">Selecione um setor...</option>';
+            if (locais && locais.length > 0) {
+                locais.forEach(l => {
+                    const opt = document.createElement('option');
+                    opt.value = l.nome;
+                    opt.textContent = l.nome;
+                    selectSetor.appendChild(opt);
+                });
+            } else {
+                selectSetor.innerHTML = '<option value="">Nenhum setor cadastrado</option>';
+            }
+        } catch (err) {
+            console.error(err);
+            selectSetor.innerHTML = '<option value="">Erro ao carregar setores</option>';
+        }
+    }
+
     document.getElementById('modalCriarUsuarioOverlay').classList.add('show');
 }
 
@@ -682,11 +716,12 @@ async function confirmarCriarUsuario() {
 }
 
 // ─── Navegação entre seções ────────────────────────────────────────────────
-const secoes  = { dashboard: 'secaoDashboard', chamados: 'secaoChamados', usuarios: 'secaoUsuarios' };
+const secoes  = { dashboard: 'secaoDashboard', chamados: 'secaoChamados', usuarios: 'secaoUsuarios', locais: 'secaoLocais' };
 const titulos = {
     dashboard: ['Dashboard Geral',        'Visão geral do sistema de chamados'],
     chamados:  ['Todos os Chamados',      'Gerencie e atualize os chamados do sistema'],
-    usuarios:  ['Usuários do Sistema',    'Gerencie os usuários e suas permissões']
+    usuarios:  ['Usuários do Sistema',    'Gerencie os usuários e suas permissões'],
+    locais:    ['Locais e Setores',       'Gerencie os locais, setores e células do sistema']
 };
 
 function mostrarSecao(secao) {
@@ -694,13 +729,14 @@ function mostrarSecao(secao) {
     document.getElementById(secoes[secao]).style.display = 'block';
     document.getElementById('headerTitle').textContent = titulos[secao][0];
     document.getElementById('headerBreadcrumb').textContent = titulos[secao][1];
-    ['navDashboard','navChamados','navUsuarios'].forEach(id => {
+    ['navDashboard','navChamados','navUsuarios','navLocais'].forEach(id => {
         document.getElementById(id)?.classList.remove('active');
     });
-    const navMap = { dashboard:'navDashboard', chamados:'navChamados', usuarios:'navUsuarios' };
+    const navMap = { dashboard:'navDashboard', chamados:'navChamados', usuarios:'navUsuarios', locais:'navLocais' };
     if (navMap[secao]) document.getElementById(navMap[secao])?.classList.add('active');
     if (secao === 'chamados') buscarChamados();
     if (secao === 'usuarios') carregarUsuarios();
+    if (secao === 'locais') carregarLocais();
 }
 
 // ─── Helpers DOM ──────────────────────────────────────────────────────────
@@ -828,6 +864,118 @@ document.getElementById('modalUsuarioOverlay')?.addEventListener('click', functi
 document.getElementById('modalCriarUsuarioOverlay')?.addEventListener('click', function(e) {
     if (e.target === this) fecharModalCriarUsuario();
 });
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { fecharModal(); fecharModalUsuario(); fecharModalCriarUsuario(); }
+document.getElementById('modalCriarLocalOverlay')?.addEventListener('click', function(e) {
+    if (e.target === this) fecharModalLocal();
 });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { 
+        fecharModal(); 
+        fecharModalUsuario(); 
+        fecharModalCriarUsuario(); 
+        fecharModalLocal(); 
+    }
+});
+
+// ─── Gerenciamento de Locais / Setores / Cels ──────────────────────────────
+function abrirModalLocal() {
+    document.getElementById('novoLocalNome').value = '';
+    document.getElementById('modalCriarLocalOverlay').classList.add('show');
+}
+
+function fecharModalLocal() {
+    document.getElementById('modalCriarLocalOverlay').classList.remove('show');
+}
+
+async function confirmarCriarLocal() {
+    const nomeInput = document.getElementById('novoLocalNome');
+    const nome = nomeInput?.value.trim();
+    if (!nome) {
+        showToast('Preencha o nome do local/setor!', 'error');
+        return;
+    }
+    
+    const btn = document.getElementById('btnConfirmarCriarLocal');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Criando...';
+    
+    const client = window.supabaseClient;
+    try {
+        const { error } = await client
+            .from('locais')
+            .insert([{ nome: nome }]);
+            
+        if (error) throw error;
+        
+        fecharModalLocal();
+        showToast(`Local "${nome}" criado com sucesso!`, 'success');
+        carregarLocais();
+    } catch (err) {
+        console.error(err);
+        showToast('Erro ao criar local/setor: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Criar Local';
+    }
+}
+
+async function deletarLocal(id, nome) {
+    if (!confirm(`Deseja realmente remover o local/setor "${nome}"?`)) return;
+    
+    const client = window.supabaseClient;
+    try {
+        const { error } = await client
+            .from('locais')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
+        
+        showToast(`Local "${nome}" removido com sucesso!`, 'success');
+        carregarLocais();
+    } catch (err) {
+        console.error(err);
+        showToast('Erro ao remover local/setor: ' + err.message, 'error');
+    }
+}
+
+async function carregarLocais() {
+    const client = window.supabaseClient;
+    mostrarLoading('tabelaLocais', 4);
+    
+    try {
+        const { data: locais, error } = await client
+            .from('locais')
+            .select('*')
+            .order('nome', { ascending: true });
+            
+        if (error) throw error;
+        
+        const tbody = document.getElementById('tabelaLocais');
+        tbody.innerHTML = '';
+        
+        if (!locais.length) {
+            renderizarVazio(tbody, 4, 'Nenhum local ou setor cadastrado');
+            return;
+        }
+        
+        locais.forEach(l => {
+            const tr = document.createElement('tr');
+            tr.appendChild(td(l.id));
+            tr.appendChild(td(l.nome));
+            tr.appendChild(td(formatarData(l.criado_em)));
+            
+            const tdAcao = document.createElement('td');
+            const btnDeletar = document.createElement('button');
+            btnDeletar.className = 'btn-sm btn-danger';
+            btnDeletar.innerHTML = '<i class="fas fa-trash-alt"></i> Excluir';
+            btnDeletar.addEventListener('click', () => deletarLocal(l.id, l.nome));
+            tdAcao.appendChild(btnDeletar);
+            tr.appendChild(tdAcao);
+            
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error('[LOAD LOCAIS ERROR]', err);
+        renderizarErro('tabelaLocais', 4);
+    }
+}

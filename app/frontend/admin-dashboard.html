@@ -31,6 +31,9 @@
             <a href="#" class="nav-item" id="navUsuarios">
                 <i class="fas fa-users"></i> Usuários
             </a>
+            <a href="#" class="nav-item" id="navLocais">
+                <i class="fas fa-map-marker-alt"></i> Locais / Setores / Cels
+            </a>
 
             <div class="nav-section-label" style="margin-top:16px">Filtros Rápidos</div>
             <a href="#" class="nav-item" id="navFiltroAbertos">
@@ -243,6 +246,33 @@
                 </div>
             </div>
 
+            <!-- ══ SEÇÃO: LOCAIS / SETORES / CELS ══ -->
+            <div id="secaoLocais" style="display:none">
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3><i class="fas fa-map-marker-alt" style="color:var(--primary)"></i> Locais, Setores e Células</h3>
+                        <button class="btn-sm btn-success" id="btnNovoLocal">
+                            <i class="fas fa-plus"></i> Novo Local/Setor
+                        </button>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table class="tickets-table">
+                             <thead>
+                                 <tr>
+                                     <th>ID</th>
+                                     <th>Nome</th>
+                                     <th>Criado em</th>
+                                     <th>Ações</th>
+                                 </tr>
+                             </thead>
+                             <tbody id="tabelaLocais">
+                                 <tr class="loading-row"><td colspan="4"><div class="spinner"></div></td></tr>
+                             </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 </div>
@@ -333,7 +363,9 @@
             </div>
             <div class="detail-row">
                 <div class="detail-label">Setor</div>
-                <input type="text" class="status-select" id="novoUsuarioSetor" placeholder="Ex: Administrativo" maxlength="80">
+                <select class="status-select" id="novoUsuarioSetor">
+                    <option value="">Carregando setores...</option>
+                </select>
             </div>
             <div class="detail-row">
                 <div class="detail-label">Papel (Permissão)</div>
@@ -348,6 +380,28 @@
             <button class="btn-sm btn-primary" id="btnFecharModalCriarBottom">Cancelar</button>
             <button class="btn-sm btn-success" id="btnConfirmarCriarUsuario">
                 <i class="fas fa-user-plus"></i> Criar Usuário
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Criar Novo Local -->
+<div class="modal-overlay" id="modalCriarLocalOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>➕ Criar Novo Local/Setor/Cel</h3>
+            <button class="modal-close" id="btnFecharModalLocalTop">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-row">
+                <div class="detail-label">Nome *</div>
+                <input type="text" class="status-select" id="novoLocalNome" placeholder="Ex: Cel da Juventude, Administrativo" maxlength="100">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-sm btn-primary" id="btnFecharModalLocalBottom">Cancelar</button>
+            <button class="btn-sm btn-success" id="btnConfirmarCriarLocal">
+                <i class="fas fa-save"></i> Criar Local
             </button>
         </div>
     </div>

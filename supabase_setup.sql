@@ -13,6 +13,7 @@ DROP FUNCTION IF EXISTS public.is_admin_or_tecnico(uuid);
 DROP TABLE IF EXISTS public.observacoes_chamado;
 DROP TABLE IF EXISTS public.chamados;
 DROP TABLE IF EXISTS public.usuarios;
+DROP TABLE IF EXISTS public.locais CASCADE;
 
 -- ── 2. TABELA DE USUÁRIOS ─────────────────────────────────────────────────────
 -- Vinculada diretamente à tabela de autenticação do Supabase (auth.users)
@@ -23,6 +24,13 @@ CREATE TABLE public.usuarios (
     setor      TEXT DEFAULT 'A Definir',
     papel      TEXT DEFAULT 'usuario' CHECK(papel IN ('admin', 'usuario', 'tecnico')),
     ativo      BOOLEAN DEFAULT TRUE,
+    criado_em  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── 2.5 TABELA DE LOCAIS/SETORES/CELS ──────────────────────────────────────────
+CREATE TABLE public.locais (
+    id         SERIAL PRIMARY KEY,
+    nome       TEXT UNIQUE NOT NULL,
     criado_em  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -116,6 +124,16 @@ CREATE TRIGGER on_auth_user_created
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chamados ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.observacoes_chamado ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.locais ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para: locais
+CREATE POLICY "Permitir leitura de locais para usuários autenticados" ON public.locais
+    FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Admin tem controle total sobre locais" ON public.locais
+    FOR ALL TO authenticated USING (
+      EXISTS (SELECT 1 FROM public.usuarios WHERE id = auth.uid() AND papel = 'admin')
+    );
 
 -- Políticas para: usuarios
 CREATE POLICY "Permitir leitura de usuários autenticados" ON public.usuarios
