@@ -126,3 +126,22 @@ body {
         justify-content: center;
     }
 }
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.app-footer {
+    padding: 20px 24px;
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    border-top: 1px solid #e2e8f0;
+    margin-top: auto;
+    background: #f8fafc;
+}
+.app-footer p {
+    margin: 4px 0;
+    line-height: 1.5;
+}
+.app-footer strong {
+    color: #334155;
+    font-weight: 600;
+}

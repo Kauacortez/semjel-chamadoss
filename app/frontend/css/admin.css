@@ -495,3 +495,23 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
     cursor: not-allowed;
 }
 
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.app-footer {
+    padding: 20px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+    background: var(--surface2);
+    transition: background var(--transition), border-color var(--transition);
+}
+.app-footer p {
+    margin: 4px 0;
+    line-height: 1.5;
+}
+.app-footer strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
