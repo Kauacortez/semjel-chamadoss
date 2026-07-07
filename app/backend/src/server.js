@@ -22,6 +22,7 @@ const authRoutes    = require('./routes/auth.routes');
 const chamadosRoutes = require('./routes/chamados.routes');
 const adminRoutes   = require('./routes/admin.routes');
 const tecnicoRoutes = require('./routes/tecnico.routes');
+const chatRoutes    = require('./routes/chat.routes');
 
 const { database } = require('./database');
 
@@ -115,6 +116,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', chamadosRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tecnico', tecnicoRoutes);
+app.use('/api/chat', chatRoutes);
 
 // =============================================================================
 // Tratamento global de erros

@@ -345,6 +345,167 @@ async function criarUsuario(req, res) {
     }
 }
 
+// ─── Deletar usuário ───────────────────────────────────────────────────────
+async function deletarUsuario(req, res) {
+    try {
+        const { id } = req.params;
+
+        if (String(id) === String(req.usuario.id)) {
+            return res.status(400).json({ success: false, message: 'Você não pode deletar sua própria conta.' });
+        }
+
+        const usuario = await database.get('SELECT * FROM usuarios WHERE id = $1', [id]);
+        if (!usuario) {
+            return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+        }
+
+        await database.run('DELETE FROM usuarios WHERE id = $1', [id]);
+        res.json({ success: true, message: `Usuário "${usuario.nome}" deletado com sucesso.` });
+    } catch (error) {
+        console.error('[ADMIN] Erro ao deletar usuário:', error.message);
+        res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+    }
+}
+
+// ─── Alterar setor de um usuário ───────────────────────────────────────────
+async function alterarSetorUsuario(req, res) {
+    try {
+        const { id } = req.params;
+        const { setor } = req.body;
+
+        if (!setor || setor.trim().length === 0) {
+            return res.status(400).json({ success: false, message: 'Setor é obrigatório.' });
+        }
+
+        const usuario = await database.get('SELECT * FROM usuarios WHERE id = $1', [id]);
+        if (!usuario) {
+            return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+        }
+
+        await database.run('UPDATE usuarios SET setor = $1 WHERE id = $2', [setor.trim(), id]);
+
+        const usuarioAtualizado = await database.get(
+            'SELECT id, nome, email, setor, papel, ativo, criado_em FROM usuarios WHERE id = $1', [id]
+        );
+
+        res.json({ success: true, message: 'Setor atualizado com sucesso.', usuario: usuarioAtualizado });
+    } catch (error) {
+        console.error('[ADMIN] Erro ao alterar setor:', error.message);
+        res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+    }
+}
+
+// ─── Buscar usuários por nome ou email ────────────────────────────────────
+async function buscarUsuarios(req, res) {
+    try {
+        const { q } = req.query;
+        if (!q || q.trim().length === 0) {
+            return res.status(400).json({ success: false, message: 'Parâmetro de busca obrigatório.' });
+        }
+        const busca = `%${q.trim()}%`;
+        const usuarios = await database.all(
+            `SELECT id, nome, email, setor, papel, ativo, criado_em, ultimo_acesso, total_acessos
+             FROM usuarios
+             WHERE nome ILIKE $1 OR email ILIKE $1
+             ORDER BY nome ASC`,
+            [busca]
+        );
+        res.json({ success: true, usuarios });
+    } catch (error) {
+        console.error('[ADMIN] Erro ao buscar usuários:', error.message);
+        res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+    }
+}
+
+// ─── Relatório Semanal/Mensal ──────────────────────────────────────────────
+async function gerarRelatorio(req, res) {
+    try {
+        const { periodo = 'semanal' } = req.query;
+        const intervalo = periodo === 'mensal' ? '1 month' : '7 days';
+
+        const totaisPorStatus = await database.all(`
+            SELECT status, COUNT(*) AS quantidade
+            FROM chamados
+            WHERE data_abertura >= NOW() - INTERVAL '${intervalo}'
+            GROUP BY status
+        `);
+
+        const totaisPorPrioridade = await database.all(`
+            SELECT prioridade, COUNT(*) AS quantidade
+            FROM chamados
+            WHERE data_abertura >= NOW() - INTERVAL '${intervalo}'
+            GROUP BY prioridade
+        `);
+
+        const totaisPorSetor = await database.all(`
+            SELECT setor_solicitante AS setor, COUNT(*) AS quantidade
+            FROM chamados
+            WHERE data_abertura >= NOW() - INTERVAL '${intervalo}'
+            GROUP BY setor_solicitante
+            ORDER BY quantidade DESC
+        `);
+
+        const totaisPorCategoria = await database.all(`
+            SELECT categoria, COUNT(*) AS quantidade
+            FROM chamados
+            WHERE data_abertura >= NOW() - INTERVAL '${intervalo}'
+            GROUP BY categoria
+            ORDER BY quantidade DESC
+        `);
+
+        const totaisPorTecnico = await database.all(`
+            SELECT tecnico_nome, COUNT(*) AS quantidade
+            FROM chamados
+            WHERE data_abertura >= NOW() - INTERVAL '${intervalo}'
+              AND tecnico_nome IS NOT NULL
+            GROUP BY tecnico_nome
+            ORDER BY quantidade DESC
+        `);
+
+        const geral = await database.get(`
+            SELECT
+                COUNT(*) AS total,
+                COUNT(CASE WHEN status = 'aberto' THEN 1 END) AS abertos,
+                COUNT(CASE WHEN status = 'em_andamento' THEN 1 END) AS em_andamento,
+                COUNT(CASE WHEN status = 'resolvido' THEN 1 END) AS resolvidos,
+                COUNT(CASE WHEN status = 'fechado' THEN 1 END) AS fechados,
+                COUNT(CASE WHEN prioridade = 'urgente' THEN 1 END) AS urgentes,
+                ROUND(AVG(EXTRACT(EPOCH FROM (COALESCE(data_resolucao, NOW()) - data_abertura))/3600)::numeric, 1) AS media_horas_resolucao
+            FROM chamados
+            WHERE data_abertura >= NOW() - INTERVAL '${intervalo}'
+        `);
+
+        const usuariosAtivos = await database.get(`
+            SELECT COUNT(*) AS total FROM usuarios WHERE ativo = TRUE
+        `);
+
+        const novosChamadosPorDia = await database.all(`
+            SELECT DATE(data_abertura) AS dia, COUNT(*) AS quantidade
+            FROM chamados
+            WHERE data_abertura >= NOW() - INTERVAL '${intervalo}'
+            GROUP BY dia
+            ORDER BY dia ASC
+        `);
+
+        res.json({
+            success: true,
+            periodo,
+            geradoEm: new Date().toISOString(),
+            geral,
+            usuariosAtivos: parseInt(usuariosAtivos?.total || 0),
+            totaisPorStatus,
+            totaisPorPrioridade,
+            totaisPorSetor,
+            totaisPorCategoria,
+            totaisPorTecnico,
+            novosChamadosPorDia
+        });
+    } catch (error) {
+        console.error('[ADMIN] Erro ao gerar relatório:', error.message);
+        res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+    }
+}
+
 module.exports = {
     listarTodosChamados,
     detalhesChamado,
@@ -355,5 +516,9 @@ module.exports = {
     listarTecnicos,
     listarObservacoes,
     atualizarUsuario,
-    criarUsuario
+    criarUsuario,
+    deletarUsuario,
+    alterarSetorUsuario,
+    buscarUsuarios,
+    gerarRelatorio
 };

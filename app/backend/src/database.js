@@ -72,9 +72,15 @@ async function criarTabelas() {
                 setor      TEXT DEFAULT 'TI',
                 papel      TEXT DEFAULT 'usuario' CHECK(papel IN ('admin', 'usuario', 'tecnico')),
                 ativo      BOOLEAN DEFAULT TRUE,
+                ultimo_acesso  TIMESTAMPTZ,
+                total_acessos  INTEGER DEFAULT 0,
                 criado_em  TIMESTAMPTZ DEFAULT NOW()
             )
         `);
+
+        // Adicionar colunas se não existirem (migração segura)
+        await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_acesso TIMESTAMPTZ`);
+        await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS total_acessos INTEGER DEFAULT 0`);
 
         // ── Tabela de Chamados ────────────────────────────────────────────────
         await client.query(`
@@ -106,6 +112,19 @@ async function criarTabelas() {
                 admin_id    INTEGER NOT NULL REFERENCES usuarios(id),
                 admin_nome  TEXT NOT NULL,
                 observacao  TEXT NOT NULL,
+                criado_em   TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        // ── Tabela de Mensagens do Chat por Chamado ────────────────────────────
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS mensagens_chamado (
+                id          SERIAL PRIMARY KEY,
+                chamado_id  INTEGER NOT NULL REFERENCES chamados(id) ON DELETE CASCADE,
+                usuario_id  INTEGER NOT NULL REFERENCES usuarios(id),
+                usuario_nome TEXT NOT NULL,
+                papel       TEXT NOT NULL,
+                mensagem    TEXT NOT NULL,
                 criado_em   TIMESTAMPTZ DEFAULT NOW()
             )
         `);

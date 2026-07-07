@@ -34,6 +34,9 @@
             <a href="#" class="nav-item" id="navLocais">
                 <i class="fas fa-map-marker-alt"></i> Locais / Setores / Cels
             </a>
+            <a href="#" class="nav-item" id="navRelatorio">
+                <i class="fas fa-chart-bar"></i> Relatórios
+            </a>
 
             <div class="nav-section-label" style="margin-top:16px">Filtros Rápidos</div>
             <a href="#" class="nav-item" id="navFiltroAbertos">
@@ -217,6 +220,15 @@
 
             <!-- ══ SEÇÃO: USUÁRIOS ══ -->
             <div id="secaoUsuarios" style="display:none">
+                <!-- Barra de pesquisa de usuários -->
+                <div class="filter-bar" style="margin-bottom:16px">
+                    <input type="text" id="buscaUsuarioInput" placeholder="🔍  Pesquisar usuário por nome ou email..." maxlength="100" style="flex:1">
+                    <button class="btn-filter" id="btnBuscarUsuario">
+                        <i class="fas fa-search"></i> Pesquisar
+                    </button>
+                    <button class="btn-clear" id="btnLimparBuscaUsuario">Limpar</button>
+                </div>
+
                 <div class="table-card">
                     <div class="table-card-header">
                         <h3><i class="fas fa-users" style="color:var(--primary)"></i> Usuários Cadastrados</h3>
@@ -234,12 +246,14 @@
                                     <th>Setor</th>
                                     <th>Papel</th>
                                     <th>Status</th>
+                                    <th>Último Acesso</th>
+                                    <th>Acessos</th>
                                     <th>Cadastro</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="tabelaUsuarios">
-                                <tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>
+                                <tr class="loading-row"><td colspan="10"><div class="spinner"></div></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -273,6 +287,40 @@
                 </div>
             </div>
 
+            <!-- ══ SEÇÃO: RELATÓRIOS ══ -->
+            <div id="secaoRelatorio" style="display:none">
+                <!-- Controles do relatório -->
+                <div class="relatorio-controls">
+                    <div class="relatorio-periodo-btns">
+                        <button class="btn-periodo active" id="btnPeriodoSemanal" data-periodo="semanal">
+                            <i class="fas fa-calendar-week"></i> Semanal
+                        </button>
+                        <button class="btn-periodo" id="btnPeriodoMensal" data-periodo="mensal">
+                            <i class="fas fa-calendar-alt"></i> Mensal
+                        </button>
+                    </div>
+                    <div class="relatorio-export-btns">
+                        <button class="btn-export btn-pdf" id="btnExportPDF">
+                            <i class="fas fa-file-pdf"></i> Exportar PDF
+                        </button>
+                        <button class="btn-export btn-excel" id="btnExportExcel">
+                            <i class="fas fa-file-excel"></i> Exportar Excel
+                        </button>
+                        <button class="btn-filter" id="btnGerarRelatorio">
+                            <i class="fas fa-sync-alt"></i> Gerar Relatório
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Conteúdo do relatório -->
+                <div id="relatorioConteudo">
+                    <div class="relatorio-placeholder">
+                        <i class="fas fa-chart-bar"></i>
+                        <p>Selecione o período e clique em <strong>Gerar Relatório</strong></p>
+                    </div>
+                </div>
+            </div>
+
         </main>
 
         <!-- Footer -->
@@ -287,13 +335,36 @@
 
 <!-- ══════════════ MODAL DETALHES CHAMADO ══════════════ -->
 <div class="modal-overlay" id="modalOverlay">
-    <div class="modal">
+    <div class="modal modal-large">
         <div class="modal-header">
             <h3 id="modalTitulo">Chamado #</h3>
-            <button class="modal-close" id="btnFecharModalTop">&times;</button>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn-sm btn-chat-toggle" id="btnToggleChat">
+                    <i class="fas fa-comments"></i> Chat
+                </button>
+                <button class="modal-close" id="btnFecharModalTop">&times;</button>
+            </div>
         </div>
-        <div class="modal-body" id="modalBody">
-            <!-- preenchido pelo JS -->
+        <div class="modal-body-split" id="modalBodySplit">
+            <!-- Detalhes do chamado -->
+            <div class="modal-detalhes" id="modalBody">
+                <!-- preenchido pelo JS -->
+            </div>
+            <!-- Chat (aparece ao lado) -->
+            <div class="modal-chat" id="modalChat" style="display:none">
+                <div class="chat-header">
+                    <i class="fas fa-comments"></i> Chat do Chamado
+                </div>
+                <div class="chat-mensagens" id="chatMensagens">
+                    <div class="chat-loading"><div class="spinner"></div></div>
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chatInputTexto" placeholder="Digite sua mensagem..." maxlength="2000" rows="2"></textarea>
+                    <button class="btn-chat-enviar" id="btnEnviarMensagem">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn-sm btn-primary" id="btnFecharModalBottom">Fechar</button>
@@ -320,9 +391,15 @@
                 <div class="detail-label">Email</div>
                 <div class="detail-value" id="editUsuarioEmail">—</div>
             </div>
+            <!-- Setor editável com searchable dropdown -->
             <div class="detail-row">
                 <div class="detail-label">Setor</div>
-                <div class="detail-value" id="editUsuarioSetor">—</div>
+                <div class="searchable-select-wrap">
+                    <input type="text" class="status-select searchable-input" id="editUsuarioSetorInput"
+                           placeholder="Digite ou selecione o setor..." autocomplete="off">
+                    <div class="searchable-dropdown" id="editUsuarioSetorDropdown"></div>
+                    <input type="hidden" id="editUsuarioSetorValor">
+                </div>
             </div>
             <div class="detail-row">
                 <div class="detail-label">Papel (Permissão)</div>
@@ -369,11 +446,15 @@
                 <div class="detail-label">Senha inicial *</div>
                 <input type="password" class="status-select" id="novoUsuarioSenha" placeholder="Mínimo 6 caracteres" maxlength="64">
             </div>
+            <!-- Setor com busca por digitação -->
             <div class="detail-row">
                 <div class="detail-label">Setor</div>
-                <select class="status-select" id="novoUsuarioSetor">
-                    <option value="">Carregando setores...</option>
-                </select>
+                <div class="searchable-select-wrap">
+                    <input type="text" class="status-select searchable-input" id="novoUsuarioSetorInput"
+                           placeholder="Digite para buscar o setor..." autocomplete="off">
+                    <div class="searchable-dropdown" id="novoUsuarioSetorDropdown"></div>
+                    <input type="hidden" id="novoUsuarioSetorValor">
+                </div>
             </div>
             <div class="detail-row">
                 <div class="detail-label">Papel (Permissão)</div>
@@ -425,6 +506,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabaseClient.js"></script>
 <script src="js/auth.js"></script>
-<script src="js/admin.js?v=4"></script>
+<!-- Libs para exportação PDF e Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/admin.js?v=5"></script>
 </body>
 </html>

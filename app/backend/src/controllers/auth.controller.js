@@ -100,6 +100,12 @@ async function login(req, res) {
             });
         }
 
+        // ── Registrar acesso ───────────────────────────────────────────────
+        await database.run(
+            'UPDATE usuarios SET ultimo_acesso = NOW(), total_acessos = COALESCE(total_acessos, 0) + 1 WHERE id = $1',
+            [usuario.id]
+        );
+
         // ── Gerar token JWT ────────────────────────────────────────────────
         const token = jwt.sign(
             {
@@ -124,6 +130,7 @@ async function login(req, res) {
                 papel: usuario.papel
             }
         });
+
 
     } catch (error) {
         console.error('[AUTH] Erro no login:', error.message);

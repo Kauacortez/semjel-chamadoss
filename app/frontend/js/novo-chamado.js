@@ -149,8 +149,23 @@ function validateForm() {
     const required = ['titulo', 'categoria', 'prioridade', 'setor', 'descricao'];
     let isValid = true;
     
+    // Validar setor via hidden input (searchable dropdown)
+    const setorHidden = document.getElementById('setorHidden');
+    const setorValor = setorHidden ? setorHidden.value.trim() : '';
+    const setorInput = document.getElementById('setorInput');
+
     required.forEach(fieldId => {
+        if (fieldId === 'setor') {
+            if (!setorValor) {
+                if (setorInput) setorInput.style.borderColor = '#dc3545';
+                isValid = false;
+            } else {
+                if (setorInput) setorInput.style.borderColor = '#ddd';
+            }
+            return;
+        }
         const field = document.getElementById(fieldId);
+        if (!field) return;
         if (!field.value.trim()) {
             field.style.borderColor = '#dc3545';
             isValid = false;
@@ -158,11 +173,11 @@ function validateForm() {
             field.style.borderColor = '#ddd';
         }
     });
-    
+
     if (!isValid) {
         showMessage('Preencha todos os campos obrigatórios!', 'error');
     }
-    
+
     return isValid;
 }
 
@@ -184,11 +199,12 @@ async function handleSubmit(e) {
     console.log('[DEBUG] handleSubmit: Formulário validado com sucesso.');
 
     // Coletar dados do formulário
+    const setorHidden = document.getElementById('setorHidden');
     const dadosChamado = {
         titulo: document.getElementById('titulo').value,
         categoria: document.getElementById('categoria').value,
         prioridade: document.getElementById('prioridade').value,
-        setor: document.getElementById('setor').value,
+        setor: setorHidden ? setorHidden.value.trim() : document.getElementById('setorInput')?.value.trim() || '',
         descricao: document.getElementById('descricao').value,
         telefone: document.getElementById('telefone').value || '',
         notificar_email: document.getElementById('notificarEmail').checked,
@@ -413,41 +429,67 @@ function showMessage(text, type = 'info') {
 // Carregar setores/locais dinamicamente do Supabase
 async function carregarDropdownSetores() {
     const client = window.supabaseClient;
-    const select = document.getElementById('setor');
-    if (!select) return;
-    
+    const wrapEl = document.getElementById('setorWrap');
+    const inputEl = document.getElementById('setorInput');
+    const dropdownEl = document.getElementById('setorDropdown');
+    const hiddenEl = document.getElementById('setorHidden');
+    if (!inputEl || !dropdownEl) return;
+
     if (!client) {
-        select.innerHTML = '<option value="">Erro ao carregar (Supabase Offline)</option>';
+        inputEl.placeholder = 'Erro ao carregar (Supabase Offline)';
         return;
     }
-    
+
     try {
         const { data: locais, error } = await client
             .from('locais')
-            .select('nome')
-            .order('nome', { ascending: true });
-            
+            .select('id, nome')
+            .order('id', { ascending: true }); // ← Ordenado por ID
+
         if (error) throw error;
-        
-        select.innerHTML = '<option value="">Selecione seu setor/local...</option>';
-        
-        if (locais && locais.length > 0) {
-            locais.forEach(l => {
-                const opt = document.createElement('option');
-                opt.value = l.nome;
-                opt.textContent = l.nome;
-                select.appendChild(opt);
-            });
-            // Opção extra caso não listado
-            const optOutro = document.createElement('option');
-            optOutro.value = 'outro';
-            optOutro.textContent = 'Outro (Não listado)';
-            select.appendChild(optOutro);
-        } else {
-            select.innerHTML = '<option value="">Nenhum setor cadastrado. Contate a TI.</option>';
+
+        const opcoes = locais ? locais.map(l => l.nome) : [];
+        if (opcoes.length > 0) opcoes.push('Outro (Não listado)');
+
+        function renderOpcoes(filtro) {
+            dropdownEl.innerHTML = '';
+            const filtradas = filtro
+                ? opcoes.filter(o => o.toLowerCase().includes(filtro.toLowerCase()))
+                : opcoes;
+
+            if (!filtradas.length) {
+                dropdownEl.innerHTML = '<div class="searchable-no-result">Nenhum resultado</div>';
+            } else {
+                filtradas.forEach(op => {
+                    const div = document.createElement('div');
+                    div.className = 'searchable-option';
+                    div.textContent = op;
+                    div.addEventListener('mousedown', e => {
+                        e.preventDefault();
+                        inputEl.value = op;
+                        hiddenEl.value = op;
+                        dropdownEl.classList.remove('open');
+                    });
+                    dropdownEl.appendChild(div);
+                });
+            }
+            dropdownEl.classList.add('open');
+        }
+
+        inputEl.addEventListener('focus', () => renderOpcoes(inputEl.value));
+        inputEl.addEventListener('input', () => {
+            hiddenEl.value = inputEl.value;
+            renderOpcoes(inputEl.value);
+        });
+        inputEl.addEventListener('blur', () => {
+            setTimeout(() => dropdownEl.classList.remove('open'), 200);
+        });
+
+        if (!locais || !locais.length) {
+            inputEl.placeholder = 'Nenhum setor cadastrado. Contate a TI.';
         }
     } catch (err) {
         console.error('[ERRO CARREGAR SETORES]', err);
-        select.innerHTML = '<option value="">Erro ao carregar setores</option>';
+        if (inputEl) inputEl.placeholder = 'Erro ao carregar setores';
     }
 }

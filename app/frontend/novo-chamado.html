@@ -12,6 +12,51 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/formulario.css">
     <link rel="stylesheet" href="css/novo-chamado.css">
+    <style>
+        .setor-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: #fff;
+            border: 1px solid #1a56db;
+            border-radius: 8px;
+            z-index: 9999;
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,.12);
+        }
+        .setor-dropdown.open { display: block; }
+        .searchable-option {
+            padding: 9px 14px;
+            font-size: 14px;
+            cursor: pointer;
+            color: #1e293b;
+            transition: background .15s;
+        }
+        .searchable-option:hover {
+            background: #e8f0fe;
+            color: #1a56db;
+        }
+        .searchable-no-result {
+            padding: 10px 14px;
+            color: #64748b;
+            font-size: 13px;
+            text-align: center;
+        }
+        .setor-input {
+            font-family: inherit;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px 14px;
+            background: #fff;
+            color: #1e293b;
+            font-size: 14px;
+            transition: border-color .2s;
+            box-sizing: border-box;
+        }
+        .setor-input:focus { outline: none; border-color: #1a56db; }
+    </style>
 </head>
 <body>
     <!-- Barra de Navegação -->
@@ -87,12 +132,16 @@
                 </div>
 
                 <div class="form-group full-width">
-                    <label for="setor">
+                    <label for="setorInput">
                         <i class="fas fa-building"></i> Setor/Localização *
                     </label>
-                    <select id="setor">
-                        <option value="">Carregando setores/locais...</option>
-                    </select>
+                    <div class="setor-searchable-wrap" id="setorWrap" style="position:relative">
+                        <input type="text" id="setorInput" class="setor-input"
+                               placeholder="Digite para buscar o setor..." autocomplete="off"
+                               style="width:100%">
+                        <div id="setorDropdown" class="setor-dropdown"></div>
+                        <input type="hidden" id="setorHidden" name="setor">
+                    </div>
                 </div>
             </div>
 

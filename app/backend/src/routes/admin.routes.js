@@ -15,7 +15,11 @@ const {
     listarTecnicos,
     listarObservacoes,
     atualizarUsuario,
-    criarUsuario
+    criarUsuario,
+    deletarUsuario,
+    alterarSetorUsuario,
+    buscarUsuarios,
+    gerarRelatorio
 } = require('../controllers/admin.controller');
 
 // Aplicar middlewares em TODAS as rotas deste router
@@ -43,6 +47,9 @@ router.get('/estatisticas', estatisticasGlobais);
 // GET  /api/admin/usuarios               → Lista todos os usuários
 router.get('/usuarios', listarUsuarios);
 
+// GET  /api/admin/usuarios/buscar        → Buscar usuários por nome ou email
+router.get('/usuarios/buscar', buscarUsuarios);
+
 // POST /api/admin/usuarios               → Criar novo usuário (pelo admin)
 router.post('/usuarios', criarUsuario);
 
@@ -51,5 +58,14 @@ router.get('/tecnicos', listarTecnicos);
 
 // PUT  /api/admin/usuarios/:id           → Atualizar papel e status de usuário
 router.put('/usuarios/:id', atualizarUsuario);
+
+// PATCH /api/admin/usuarios/:id/setor   → Alterar setor de usuário
+router.patch('/usuarios/:id/setor', alterarSetorUsuario);
+
+// DELETE /api/admin/usuarios/:id         → Deletar usuário
+router.delete('/usuarios/:id', deletarUsuario);
+
+// GET  /api/admin/relatorio              → Gerar relatório (?periodo=semanal|mensal)
+router.get('/relatorio', gerarRelatorio);
 
 module.exports = router;
