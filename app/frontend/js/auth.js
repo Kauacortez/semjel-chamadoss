@@ -136,6 +136,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         return;
                     }
 
+                    // Registrar data e contador de acessos online diretamente no banco
+                    try {
+                        const totalAcessosAtual = (profile.total_acessos || 0) + 1;
+                        await client
+                            .from('usuarios')
+                            .update({
+                                ultimo_acesso: new Date().toISOString(),
+                                total_acessos: totalAcessosAtual
+                            })
+                            .eq('id', profile.id);
+                    } catch (acessError) {
+                        console.error('Erro ao registrar acesso:', acessError);
+                    }
+
                     // 4. Salvar dados de sessão no localStorage
                     localStorage.setItem('semjel_token', session.access_token);
                     localStorage.setItem('semjel_logged_in', 'true');
@@ -145,6 +159,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     localStorage.setItem('semjel_user_papel', profile.papel);
 
                     showMessage('Login realizado com sucesso! Redirecionando...', 'success');
+
 
                     // Redirecionar de acordo com o papel
                     setTimeout(() => {
