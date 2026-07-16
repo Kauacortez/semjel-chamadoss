@@ -186,10 +186,10 @@ function iniciarSearchableDropdown(inputId, dropdownId, hiddenId, opcoes) {
 }
 
 // ─── Carregar dados iniciais ───────────────────────────────────────────────
-async function carregarDados() {
-    animarRefresh(true);
+async function carregarDados(isAutoRefresh = false) {
+    if (!isAutoRefresh) animarRefresh(true);
     await Promise.all([carregarEstatisticas(), carregarChamadosRecentes()]);
-    animarRefresh(false);
+    if (!isAutoRefresh) animarRefresh(false);
     const lastUpdate = document.getElementById('ultimaAtualizacao');
     if (lastUpdate) {
         lastUpdate.textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
@@ -243,13 +243,15 @@ async function carregarChamadosRecentes() {
 }
 
 // ─── Buscar chamados com filtros + paginação ───────────────────────────────
-async function buscarChamados() {
+async function buscarChamados(isAutoRefresh = false) {
     const client = window.supabaseClient;
     const busca     = document.getElementById('buscaInput').value.trim();
     const status    = document.getElementById('filtroStatus').value;
     const prioridade= document.getElementById('filtroPrioridade').value;
 
-    mostrarLoading('tabelaChamados', 10);
+    if (!isAutoRefresh) {
+        mostrarLoading('tabelaChamados', 10);
+    }
 
     try {
         let query = client.from('chamados').select('*', { count: 'exact' });
@@ -869,10 +871,10 @@ function iniciarAutoRefresh() {
                             (modalCriarLocalOverlay && modalCriarLocalOverlay.classList.contains('show'));
         
         if (!isModalOpen) {
-            carregarDados();
+            carregarDados(true);
             const secaoChamados = document.getElementById('secaoChamados');
             if (secaoChamados && secaoChamados.style.display === 'block') {
-                buscarChamados();
+                buscarChamados(true);
             }
         }
     }, 15000);
