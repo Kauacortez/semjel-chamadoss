@@ -9,6 +9,7 @@ let chamadoAtualId = null;
 let usuarioAtualId = null;
 let chatAberto = false;
 let chatPollingInterval = null;
+let autoRefreshInterval = null;
 let periodoRelatorio = 'semanal';
 let dadosRelatorioAtual = null;
 let setoresCache = [];
@@ -119,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Carregar setores no cache para os dropdowns
     carregarSetoresCache();
     carregarDados();
+    iniciarAutoRefresh();
 });
 
 // ─── Verificar Autenticação ────────────────────────────────────────────────
@@ -853,6 +855,36 @@ function pararPollingChat() {
     }
 }
 
+function iniciarAutoRefresh() {
+    pararAutoRefresh();
+    autoRefreshInterval = setInterval(() => {
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalUsuarioOverlay = document.getElementById('modalUsuarioOverlay');
+        const modalCriarUsuarioOverlay = document.getElementById('modalCriarUsuarioOverlay');
+        const modalCriarLocalOverlay = document.getElementById('modalCriarLocalOverlay');
+        
+        const isModalOpen = (modalOverlay && modalOverlay.classList.contains('show')) ||
+                            (modalUsuarioOverlay && modalUsuarioOverlay.classList.contains('show')) ||
+                            (modalCriarUsuarioOverlay && modalCriarUsuarioOverlay.classList.contains('show')) ||
+                            (modalCriarLocalOverlay && modalCriarLocalOverlay.classList.contains('show'));
+        
+        if (!isModalOpen) {
+            carregarDados();
+            const secaoChamados = document.getElementById('secaoChamados');
+            if (secaoChamados && secaoChamados.style.display === 'block') {
+                buscarChamados();
+            }
+        }
+    }, 15000);
+}
+
+function pararAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
 // ─── Modal Editar Usuário ──────────────────────────────────────────────────
 async function abrirModalUsuario(u) {
     usuarioAtualId = u.id;
@@ -1239,6 +1271,55 @@ function renderizarRelatorio(dados) {
     const listaTecnico = dados.porTecnico.slice(0, 6).map(([t, q]) =>
         `<li><span>${t}</span><span class="badge-count">${q}</span></li>`).join('');
 
+    // Tabela detalhada de chamados no dashboard
+    let tabelaChamadosHTML = '';
+    if (dados.chamados && dados.chamados.length > 0) {
+        const rows = dados.chamados.map(c => {
+            const sol = dados.usuarios.find(u => u.id === c.usuario_id);
+            const solEmail = sol ? sol.email : '—';
+            const dataPedida = c.data_abertura ? formatarData(c.data_abertura) : '—';
+            const dataResolvido = c.data_resolucao ? formatarData(c.data_resolucao) : 'Pendente';
+            
+            return `
+                <tr>
+                    <td>CH-${String(c.id).padStart(4, '0')}</td>
+                    <td><strong>${escapeHtml(c.usuario_nome)}</strong><br><small>${escapeHtml(c.setor_solicitante)}</small></td>
+                    <td>${escapeHtml(solEmail)}<br><small>${escapeHtml(c.telefone_contato || '—')}</small></td>
+                    <td>${dataPedida}</td>
+                    <td><span class="badge badge-${c.status === 'aberto' ? 'aberto' : c.status === 'em_andamento' ? 'andamento' : c.status === 'resolvido' ? 'resolvido' : 'fechado'}">${initCap(c.status)}</span></td>
+                    <td>${escapeHtml(c.tecnico_nome || '—')}</td>
+                    <td>${dataResolvido}</td>
+                </tr>
+            `;
+        }).join('');
+
+        tabelaChamadosHTML = `
+            <div class="table-card" style="margin-top:24px">
+                <div class="table-card-header" style="background:var(--surface2)">
+                    <h3 style="font-size:14px;font-weight:600;"><i class="fas fa-list" style="color:var(--primary);margin-right:8px"></i>Detalhamento dos Chamados do Período</h3>
+                </div>
+                <div style="overflow-x:auto">
+                    <table class="tickets-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Solicitante / Setor</th>
+                                <th>Contato (Email / Tel)</th>
+                                <th>Data/Hora Pedido</th>
+                                <th>Status</th>
+                                <th>Técnico que Resolveu</th>
+                                <th>Data/Hora Resolução</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
     container.innerHTML = `
         <div style="margin-bottom:12px;font-size:13px;color:var(--text-muted)">
             <i class="fas fa-calendar"></i> Período: <strong>${titulo}</strong> &nbsp;|&nbsp;
@@ -1273,7 +1354,7 @@ function renderizarRelatorio(dados) {
             </div>
         </div>
 
-        <div class="relatorio-grid">
+        <div class="relatorio-grid" style="margin-bottom:20px">
             <!-- Por Setor -->
             <div class="relatorio-card">
                 <h4><i class="fas fa-building" style="color:var(--primary)"></i> Chamados por Setor</h4>
@@ -1292,6 +1373,8 @@ function renderizarRelatorio(dados) {
                 <ul class="relatorio-list">${listaTecnico || '<li><span>Sem atribuições</span></li>'}</ul>
             </div>
         </div>
+
+        ${tabelaChamadosHTML}
     `;
 }
 
@@ -1395,6 +1478,43 @@ function exportarPDF() {
             headStyles: { fillColor: [26, 86, 219] },
             margin: { left: 14, right: 14 }
         });
+        y = doc.lastAutoTable.finalY + 12;
+    }
+
+    // Detalhamento dos Chamados no PDF
+    if (dadosRelatorioAtual.chamados && dadosRelatorioAtual.chamados.length > 0) {
+        if (y > 220) { doc.addPage(); y = 20; }
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.text('Lista de Chamados Detalhada', 14, y);
+        y += 5;
+        
+        const chamadoPdfRows = dadosRelatorioAtual.chamados.map(c => {
+            const sol = dadosRelatorioAtual.usuarios.find(u => u.id === c.usuario_id);
+            const solEmail = sol ? sol.email : '—';
+            const dataPedida = c.data_abertura ? formatarData(c.data_abertura) : '—';
+            const dataResolvido = c.data_resolucao ? formatarData(c.data_resolucao) : 'Pendente';
+            
+            return [
+                `CH-${String(c.id).padStart(4, '0')}`,
+                c.titulo.substring(0, 25) + (c.titulo.length > 25 ? '...' : ''),
+                `${c.usuario_nome}\n(${c.setor_solicitante})`,
+                `${solEmail}\n${c.telefone_contato || '—'}`,
+                dataPedida,
+                initCap(c.status),
+                `${c.tecnico_nome || '—'}\n(${dataResolvido})`
+            ];
+        });
+        
+        doc.autoTable({
+            startY: y,
+            head: [['#', 'Título', 'Solicitante (Setor)', 'Contato', 'Data Pedido', 'Status', 'Técnico / Resolução']],
+            body: chamadoPdfRows,
+            theme: 'striped',
+            headStyles: { fillColor: [26, 86, 219] },
+            styles: { fontSize: 8 },
+            margin: { left: 14, right: 14 }
+        });
     }
 
     doc.save(`SEMJEL_${titulo.replace(' ', '_')}_${hoje.replace(/\//g, '-')}.pdf`);
@@ -1452,19 +1572,29 @@ function exportarExcel() {
 
     // Aba: Lista de Chamados
     if (dadosRelatorioAtual.chamados && dadosRelatorioAtual.chamados.length > 0) {
-        const chamadoRows = dadosRelatorioAtual.chamados.map(c => [
-            `CH-${String(c.id).padStart(4, '0')}`,
-            c.titulo,
-            c.usuario_nome,
-            c.setor_solicitante,
-            initCap(c.categoria),
-            initCap(c.prioridade),
-            initCap(c.status),
-            c.tecnico_nome || '—',
-            c.data_abertura ? new Date(c.data_abertura).toLocaleDateString('pt-BR') : '—'
-        ]);
+        const chamadoRows = dadosRelatorioAtual.chamados.map(c => {
+            const sol = dadosRelatorioAtual.usuarios.find(u => u.id === c.usuario_id);
+            const solEmail = sol ? sol.email : '—';
+            const dataPedida = c.data_abertura ? formatarData(c.data_abertura) : '—';
+            const dataResolvido = c.data_resolucao ? formatarData(c.data_resolucao) : 'Pendente';
+            
+            return [
+                `CH-${String(c.id).padStart(4, '0')}`,
+                c.titulo,
+                c.usuario_nome,
+                solEmail,
+                c.setor_solicitante,
+                c.telefone_contato || '—',
+                initCap(c.categoria),
+                initCap(c.prioridade),
+                initCap(c.status),
+                dataPedida,
+                c.tecnico_nome || '—',
+                dataResolvido
+            ];
+        });
         const wsChamados = XLSX.utils.aoa_to_sheet([
-            ['#', 'Título', 'Solicitante', 'Setor', 'Categoria', 'Prioridade', 'Status', 'Técnico', 'Data Abertura'],
+            ['#', 'Título', 'Solicitante', 'Email Solicitante', 'Setor', 'Telefone', 'Categoria', 'Prioridade', 'Status', 'Data/Hora Abertura', 'Técnico Responsável/Resolveu', 'Data/Hora Resolução'],
             ...chamadoRows
         ]);
         XLSX.utils.book_append_sheet(wb, wsChamados, 'Chamados');
