@@ -535,13 +535,36 @@
 
     <!-- Modal de Detalhes -->
     <div class="modal-overlay" id="modalOverlay">
-        <div class="modal">
+        <div class="modal modal-large">
             <div class="modal-header">
                 <h3 id="modalTitulo">Detalhes do Chamado</h3>
-                <button class="modal-close" id="btnFecharModalTop">&times;</button>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <button class="btn-sm btn-chat-toggle" id="btnToggleChat">
+                        <i class="fas fa-comments"></i> Chat
+                    </button>
+                    <button class="modal-close" id="btnFecharModalTop">&times;</button>
+                </div>
             </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Preenchido dinamicamente pelo JS -->
+            <div class="modal-body-split" id="modalBodySplit">
+                <!-- Detalhes do chamado -->
+                <div class="modal-detalhes" id="modalBody">
+                    <!-- Preenchido dinamicamente pelo JS -->
+                </div>
+                <!-- Chat (aparece ao lado) -->
+                <div class="modal-chat" id="modalChat" style="display:none">
+                    <div class="chat-header">
+                        <i class="fas fa-comments"></i> Chat do Chamado
+                    </div>
+                    <div class="chat-mensagens" id="chatMensagens">
+                        <div class="chat-loading"><div class="spinner"></div></div>
+                    </div>
+                    <div class="chat-input-area">
+                        <textarea id="chatInputTexto" placeholder="Digite sua mensagem..." maxlength="2000" rows="2"></textarea>
+                        <button class="btn-chat-enviar" id="btnEnviarMensagem">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-sm btn-primary" id="btnFecharModalBottom">Fechar</button>
@@ -562,6 +585,9 @@
 
         // Cache local de chamados
         let chamadosCache = [];
+        let chamadoAtualId = null;
+        let chatAberto = false;
+        let chatPollingInterval = null;
 
         // ── Auth guard ─────────────────────────────────────────────────────────
         (function guardPage() {
@@ -585,6 +611,23 @@
             document.getElementById('btnFecharModalTop').addEventListener('click', fecharModal);
             document.getElementById('btnFecharModalBottom').addEventListener('click', fecharModal);
 
+            // Eventos do chat
+            const btnToggleChat = document.getElementById('btnToggleChat');
+            if (btnToggleChat) btnToggleChat.addEventListener('click', toggleChat);
+
+            const btnEnviarMsg = document.getElementById('btnEnviarMensagem');
+            if (btnEnviarMsg) btnEnviarMsg.addEventListener('click', enviarMensagemChat);
+
+            const chatTextoInput = document.getElementById('chatInputTexto');
+            if (chatTextoInput) {
+                chatTextoInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        enviarMensagemChat();
+                    }
+                });
+            }
+
             carregarDashboard();
         });
 
@@ -592,6 +635,22 @@
             const client = window.supabaseClient;
             const userId = localStorage.getItem('semjel_user_id');
             if (!client || !userId) { limparSessao(); return; }
+
+            // Sincronizar nome de usuário e status ativo a partir do banco de dados
+            try {
+                const { data: profile } = await client
+                    .from('usuarios')
+                    .select('nome, ativo')
+                    .eq('id', userId)
+                    .single();
+                if (profile) {
+                    if (!profile.ativo) { limparSessao(); return; }
+                    localStorage.setItem('semjel_user_name', profile.nome);
+                    document.getElementById('userName').textContent = profile.nome;
+                }
+            } catch (err) {
+                console.error("[PROFILE SYNC ERROR]", err);
+            }
 
             try {
                 const { data: chamados, error } = await client
@@ -682,6 +741,15 @@
             const chamado = chamadosCache.find(c => c.id === id);
             if (!chamado) return;
 
+            chamadoAtualId = id;
+            chatAberto = false;
+
+            // Resetar estado do chat
+            pararPollingChat();
+            document.getElementById('modalChat').style.display = 'none';
+            const btnToggle = document.getElementById('btnToggleChat');
+            if (btnToggle) btnToggle.classList.remove('ativo');
+
             document.getElementById('modalTitulo').textContent = `Chamado CH-${String(chamado.id).padStart(4, '0')}`;
             
             const slaFormatado = chamado.prazo_sla ? new Date(chamado.prazo_sla).toLocaleString('pt-BR') : 'A Definir';
@@ -747,6 +815,147 @@
 
         function fecharModal() {
             document.getElementById('modalOverlay').classList.remove('active');
+            chamadoAtualId = null;
+            pararPollingChat();
+            chatAberto = false;
+        }
+
+        // ─── Chat do Chamado ───────────────────────────────────────────────────────
+        function toggleChat() {
+            chatAberto = !chatAberto;
+            const chatPanel = document.getElementById('modalChat');
+            const btnToggle = document.getElementById('btnToggleChat');
+
+            if (chatAberto) {
+                chatPanel.style.display = 'flex';
+                btnToggle.classList.add('ativo');
+                carregarMensagensChat();
+                iniciarPollingChat();
+            } else {
+                chatPanel.style.display = 'none';
+                btnToggle.classList.remove('ativo');
+                pararPollingChat();
+            }
+        }
+
+        async function carregarMensagensChat() {
+            if (!chamadoAtualId) return;
+            const client = window.supabaseClient;
+            if (!client) return;
+            try {
+                const { data: mensagens, error } = await client
+                    .from('mensagens_chamado')
+                    .select('*')
+                    .eq('chamado_id', chamadoAtualId)
+                    .order('criado_em', { ascending: true });
+
+                if (error) throw error;
+                renderizarMensagensChat(mensagens);
+            } catch (err) {
+                console.error('[CHAT]', err);
+            }
+        }
+
+        function renderizarMensagensChat(mensagens) {
+            const container = document.getElementById('chatMensagens');
+            if (!container) return;
+
+            const meuId = localStorage.getItem('semjel_user_id');
+            const meuPapel = localStorage.getItem('semjel_user_papel');
+
+            container.innerHTML = '';
+
+            if (!mensagens || !mensagens.length) {
+                container.innerHTML = '<div class="chat-vazio"><i class="fas fa-comments" style="font-size:28px;opacity:.3;display:block;margin-bottom:8px"></i>Sem mensagens ainda.<br>Inicie a conversa!</div>';
+                return;
+            }
+
+            mensagens.forEach(m => {
+                const div = document.createElement('div');
+                const ehMeu = String(m.usuario_id) === String(meuId);
+
+                let classe = 'recebido';
+                if (m.papel === 'admin') classe = 'admin-msg';
+                else if (m.papel === 'tecnico') classe = 'tecnico-msg';
+                else if (ehMeu) classe = 'enviado';
+
+                div.className = `chat-msg ${classe}`;
+                div.innerHTML = `
+                    <div class="chat-msg-autor">${escapeHTML(m.usuario_nome)} ${m.papel !== 'usuario' ? '(' + initCap(m.papel) + ')' : ''}</div>
+                    <div>${escapeHTML(m.mensagem)}</div>
+                    <div class="chat-msg-hora">${formatarDataHora(m.criado_em)}</div>
+                `;
+                container.appendChild(div);
+            });
+
+            // Scroll para baixo
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function enviarMensagemChat() {
+            const input = document.getElementById('chatInputTexto');
+            const texto = input?.value.trim();
+            if (!texto || !chamadoAtualId) return;
+
+            const client = window.supabaseClient;
+            const userId = localStorage.getItem('semjel_user_id');
+            const userName = localStorage.getItem('semjel_user_name');
+            const userPapel = localStorage.getItem('semjel_user_papel');
+
+            if (!client || !userId) return;
+
+            const btn = document.getElementById('btnEnviarMensagem');
+            btn.disabled = true;
+
+            try {
+                const { error } = await client
+                    .from('mensagens_chamado')
+                    .insert([{
+                        chamado_id: chamadoAtualId,
+                        usuario_id: userId,
+                        usuario_nome: userName,
+                        papel: userPapel || 'usuario',
+                        mensagem: texto
+                    }]);
+
+                if (error) throw error;
+                input.value = '';
+                await carregarMensagensChat();
+            } catch (err) {
+                console.error('[CHAT ENVIAR]', err);
+                alert('Erro ao enviar mensagem: ' + err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function iniciarPollingChat() {
+            pararPollingChat();
+            chatPollingInterval = setInterval(() => {
+                if (chatAberto && chamadoAtualId) carregarMensagensChat();
+            }, 5000);
+        }
+
+        function pararPollingChat() {
+            if (chatPollingInterval) {
+                clearInterval(chatPollingInterval);
+                chatPollingInterval = null;
+            }
+        }
+
+        function formatarDataHora(str) {
+            if (!str) return '—';
+            try { 
+                return new Date(str).toLocaleString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }); 
+            } catch { 
+                return str; 
+            }
         }
 
         function renderizarErro() {

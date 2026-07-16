@@ -857,7 +857,8 @@ function pararPollingChat() {
 async function abrirModalUsuario(u) {
     usuarioAtualId = u.id;
     document.getElementById('modalUsuarioTitulo').textContent = `Editar: ${u.nome}`;
-    document.getElementById('editUsuarioNome').textContent  = u.nome  || '—';
+    const nomeInput = document.getElementById('editUsuarioNomeInput');
+    if (nomeInput) nomeInput.value = u.nome || '';
     document.getElementById('editUsuarioEmail').textContent = u.email || '—';
     document.getElementById('editUsuarioPapel').value = u.papel || 'usuario';
     document.getElementById('editUsuarioAtivo').value = u.ativo ? '1' : '0';
@@ -884,6 +885,12 @@ function fecharModalUsuario() {
 async function salvarUsuario() {
     const client = window.supabaseClient;
     if (!usuarioAtualId) return;
+    const nomeInput = document.getElementById('editUsuarioNomeInput');
+    const nome = nomeInput ? nomeInput.value.trim() : '';
+    if (!nome) {
+        showToast('O nome do usuário não pode ser vazio!', 'error');
+        return;
+    }
     const papel = document.getElementById('editUsuarioPapel').value;
     const ativo = document.getElementById('editUsuarioAtivo').value === '1';
     const setorInput = document.getElementById('editUsuarioSetorInput');
@@ -894,7 +901,7 @@ async function salvarUsuario() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
 
     try {
-        const updates = { papel, ativo };
+        const updates = { nome, papel, ativo };
         if (setor) updates.setor = setor;
 
         const { error } = await client
@@ -903,6 +910,18 @@ async function salvarUsuario() {
             .eq('id', usuarioAtualId);
 
         if (error) throw error;
+
+        // Atualizar o nome do solicitante nos chamados existentes do usuário
+        await client
+            .from('chamados')
+            .update({ usuario_nome: nome })
+            .eq('usuario_id', usuarioAtualId);
+
+        // Atualizar o nome do técnico nos chamados atribuídos a este usuário
+        await client
+            .from('chamados')
+            .update({ tecnico_nome: nome })
+            .eq('tecnico_id', usuarioAtualId);
 
         fecharModalUsuario();
         showToast('Usuário atualizado com sucesso!', 'success');
