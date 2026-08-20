@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addEvt('navFiltroUrgentes', () => filtrarRapido('urgente', 'prioridade'));
 
     // Header
+    addEvt('btnAtivarNotificacoesAdmin', async () => { await solicitarPermissaoNotificacoes(); });
     addEvt('btnThemeToggle', toggleDarkMode);
     addEvt('btnRefresh',     carregarDados);
     addEvt('btnLogout',      logout);
@@ -121,6 +122,25 @@ document.addEventListener('DOMContentLoaded', () => {
     carregarSetoresCache();
     carregarDados();
     iniciarAutoRefresh();
+
+    // Inicializar monitoramento global de notificações para o administrador
+    const userId = localStorage.getItem('semjel_user_id');
+    const papel = localStorage.getItem('semjel_user_papel') || 'admin';
+    if (userId && typeof iniciarMonitoramentoNotificacoes === 'function') {
+        iniciarMonitoramentoNotificacoes({
+            userId: userId,
+            papel: papel,
+            onAbrirChamado: async (id) => {
+                await abrirModal(id);
+                if (!chatAberto) toggleChat();
+            },
+            onMensagemRecebida: (msg) => {
+                if (chatAberto && chamadoAtualId === msg.chamado_id) {
+                    carregarMensagensChat();
+                }
+            }
+        });
+    }
 });
 
 // ─── Verificar Autenticação ────────────────────────────────────────────────

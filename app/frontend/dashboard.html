@@ -442,6 +442,9 @@
             <span>SEMJEL TI — Chamados</span>
         </div>
         <div class="user-info">
+            <button class="btn-ativar-notificacoes" id="btnAtivarNotificacoesNav">
+                <i class="fas fa-bell"></i> Notificações
+            </button>
             <i class="fas fa-user-circle"></i>
             <span id="userName">Usuário</span>
             <button class="btn-logout-nav" id="btnLogoutNav">
@@ -576,6 +579,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabaseClient.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/notifications.js"></script>
 
     <script>
         // ==========================================================================
@@ -607,6 +611,15 @@
             const btnLogout = document.getElementById('btnLogoutNav');
             if (btnLogout) btnLogout.addEventListener('click', (e) => { e.preventDefault(); logout(); });
 
+            // Botão de ativação de notificações
+            const btnNotif = document.getElementById('btnAtivarNotificacoesNav');
+            if (btnNotif) {
+                btnNotif.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    await solicitarPermissaoNotificacoes();
+                });
+            }
+
             // Eventos do modal
             document.getElementById('btnFecharModalTop').addEventListener('click', fecharModal);
             document.getElementById('btnFecharModalBottom').addEventListener('click', fecharModal);
@@ -629,6 +642,25 @@
             }
 
             carregarDashboard();
+
+            // Inicializar monitoramento global de notificações para o usuário
+            const userId = localStorage.getItem('semjel_user_id');
+            const papel = localStorage.getItem('semjel_user_papel') || 'usuario';
+            if (userId && typeof iniciarMonitoramentoNotificacoes === 'function') {
+                iniciarMonitoramentoNotificacoes({
+                    userId: userId,
+                    papel: papel,
+                    onAbrirChamado: (id) => {
+                        verDetalhes(id);
+                        if (!chatAberto) toggleChat();
+                    },
+                    onMensagemRecebida: (msg) => {
+                        if (chatAberto && chamadoAtualId === msg.chamado_id) {
+                            carregarMensagensChat();
+                        }
+                    }
+                });
+            }
         });
 
         async function carregarDashboard() {
